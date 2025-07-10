@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Subtitle Extractor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 700;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .input-section {
+            margin-bottom: 30px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        input[type="url"] {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        input[type="url"]:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 150px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+            font-weight: 600;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .result-section {
+            margin-top: 30px;
+        }
+        
+        .transcript-box {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 25px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .transcript-box::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .transcript-box::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .transcript-box::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #fcc;
+        }
+        
+        .success {
+            background: #efe;
+            color: #363;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #cfc;
+        }
+        
+        .video-info {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+            transition: background 0.3s ease;
+        }
+        
+        .copy-btn:hover {
+            background: #218838;
+        }
+        
+        .example {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+            font-style: italic;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .input-group {
+                flex-direction: column;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 YouTube Subtitle Extractor</h1>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <input type="url" id="urlInput" placeholder="Enter YouTube URL here..." />
+                <button class="btn" onclick="extractSubtitles()">Extract Subtitles</button>
+            </div>
+            <div class="example">
+                Example: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            Extracting subtitles...
+        </div>
+        
+        <div class="result-section" id="resultSection" style="display: none;">
+            <div class="video-info" id="videoInfo"></div>
+            <div class="transcript-box" id="transcriptBox"></div>
+            <button class="copy-btn" onclick="copyTranscript()">📋 Copy Transcript</button>
+        </div>
+    </div>
+
+    <script>
+        let currentTranscript = '';
+        
+        function extractSubtitles() {
+            const urlInput = document.getElementById('urlInput');
+            const loading = document.getElementById('loading');
+            const resultSection = document.getElementById('resultSection');
+            const url = urlInput.value.trim();
+            
+            if (!url) {
+                showError('Please enter a YouTube URL');
+                return;
+            }
+            
+            // Show loading
+            loading.style.display = 'block';
+            resultSection.style.display = 'none';
+            clearMessages();
+            
+            // Make API request
+            fetch('/api/transcript', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: url })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+                
+                if (data.success) {
+                    showTranscript(data.transcript, data.video_id);
+                    showSuccess('Subtitles extracted successfully!');
+                } else {
+                    showError(data.error || 'An error occurred');
+                }
+            })
+            .catch(error => {
+                loading.style.display = 'none';
+                showError('Network error: ' + error.message);
+            });
+        }
+        
+        function showTranscript(transcript, videoId) {
+            const resultSection = document.getElementById('resultSection');
+            const transcriptBox = document.getElementById('transcriptBox');
+            const videoInfo = document.getElementById('videoInfo');
+            
+            currentTranscript = transcript;
+            transcriptBox.textContent = transcript;
+            videoInfo.innerHTML = `<strong>Video ID:</strong> ${videoId}`;
+            resultSection.style.display = 'block';
+        }
+        
+        function copyTranscript() {
+            if (currentTranscript) {
+                navigator.clipboard.writeText(currentTranscript).then(() => {
+                    showSuccess('Transcript copied to clipboard!');
+                }).catch(err => {
+                    showError('Failed to copy transcript');
+                });
+            }
+        }
+        
+        function showError(message) {
+            clearMessages();
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            document.querySelector('.input-section').appendChild(errorDiv);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+        
+        function showSuccess(message) {
+            clearMessages();
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            document.querySelector('.input-section').appendChild(successDiv);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+        
+        function clearMessages() {
+            document.querySelectorAll('.error, .success').forEach(el => el.remove());
+        }
+        
+        // Allow Enter key to submit
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                extractSubtitles();
+            }
+        });
+    </script>
+</body>
+</html>
