@@ -1,23 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube Subtitle Extractor</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 800px;
             margin: 0 auto;
@@ -27,7 +31,7 @@
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(10px);
         }
-        
+
         h1 {
             text-align: center;
             color: #333;
@@ -38,17 +42,17 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        
+
         .input-section {
             margin-bottom: 30px;
         }
-        
+
         .input-group {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
         }
-        
+
         input[type="url"] {
             flex: 1;
             padding: 15px;
@@ -58,12 +62,12 @@
             outline: none;
             transition: all 0.3s ease;
         }
-        
+
         input[type="url"]:focus {
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
-        
+
         .btn {
             padding: 15px 30px;
             background: linear-gradient(45deg, #667eea, #764ba2);
@@ -76,22 +80,22 @@
             transition: all 0.3s ease;
             min-width: 150px;
         }
-        
+
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
         }
-        
+
         .btn:active {
             transform: translateY(0);
         }
-        
+
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
         }
-        
+
         .loading {
             display: none;
             text-align: center;
@@ -99,7 +103,7 @@
             font-weight: 600;
             margin: 20px 0;
         }
-        
+
         .spinner {
             border: 3px solid #f3f3f3;
             border-top: 3px solid #667eea;
@@ -109,16 +113,95 @@
             animation: spin 1s linear infinite;
             margin: 0 auto 10px;
         }
-        
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
-        
+
         .result-section {
             margin-top: 30px;
         }
-        
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #e8f4f8;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .video-info {
+            flex: 1;
+            margin: 0;
+        }
+
+        .copy-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: right;
+        }
+
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            transition: background 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        }
+
+        .copy-btn:hover {
+            background: #218838;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        }
+
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+
+        .copy-btn.copied {
+            background: #218838;
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
+        }
+
+        .copy-btn.copied:hover {
+            background: #1e7e34;
+        }
+
         .transcript-box {
             background: #f8f9fa;
             border: 1px solid #e0e0e0;
@@ -132,21 +215,21 @@
             white-space: pre-wrap;
             word-wrap: break-word;
         }
-        
+
         .transcript-box::-webkit-scrollbar {
             width: 8px;
         }
-        
+
         .transcript-box::-webkit-scrollbar-track {
             background: #f1f1f1;
             border-radius: 10px;
         }
-        
+
         .transcript-box::-webkit-scrollbar-thumb {
             background: #667eea;
             border-radius: 10px;
         }
-        
+
         .error {
             background: #fee;
             color: #c33;
@@ -155,7 +238,7 @@
             margin: 20px 0;
             border: 1px solid #fcc;
         }
-        
+
         .success {
             background: #efe;
             color: #363;
@@ -164,7 +247,7 @@
             margin: 20px 0;
             border: 1px solid #cfc;
         }
-        
+
         .video-info {
             background: #e8f4f8;
             padding: 15px;
@@ -172,23 +255,7 @@
             margin-bottom: 20px;
             border-left: 4px solid #667eea;
         }
-        
-        .copy-btn {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 10px;
-            transition: background 0.3s ease;
-        }
-        
-        .copy-btn:hover {
-            background: #218838;
-        }
-        
+
         .language-section {
             margin-top: 25px;
             padding: 25px;
@@ -196,20 +263,20 @@
             border-radius: 15px;
             border: 2px solid rgba(102, 126, 234, 0.1);
         }
-        
+
         .language-section h3 {
             margin-bottom: 20px;
             color: #333;
             font-size: 1.3em;
         }
-        
+
         .language-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 12px;
             margin-bottom: 25px;
         }
-        
+
         .language-option {
             padding: 12px 16px;
             background: white;
@@ -221,38 +288,38 @@
             align-items: center;
             gap: 10px;
         }
-        
+
         .language-option:hover {
             border-color: #667eea;
             background: #f8f9ff;
         }
-        
+
         .language-option.selected {
             border-color: #667eea;
             background: #667eea;
             color: white;
         }
-        
+
         .language-option input[type="radio"] {
             margin: 0;
             width: 16px;
             height: 16px;
         }
-        
+
         .language-info {
             flex: 1;
         }
-        
+
         .language-name {
             font-weight: 600;
             margin-bottom: 2px;
         }
-        
+
         .language-details {
             font-size: 12px;
             opacity: 0.8;
         }
-        
+
         .language-badge {
             background: rgba(102, 126, 234, 0.1);
             color: #667eea;
@@ -262,37 +329,48 @@
             font-weight: 600;
             margin-left: 5px;
         }
-        
+
         .language-option.selected .language-badge {
             background: rgba(255, 255, 255, 0.2);
             color: white;
         }
-        
+
         .extract-section {
             text-align: center;
             padding-top: 15px;
             border-top: 1px solid rgba(102, 126, 234, 0.1);
         }
-        
+
         @media (max-width: 600px) {
             .container {
                 padding: 20px;
             }
-            
+
             .input-group {
                 flex-direction: column;
             }
-            
+
             h1 {
                 font-size: 2em;
+            }
+
+            .result-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
+            }
+
+            .copy-btn {
+                align-self: center;
             }
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>🎬 YouTube Subtitle Extractor</h1>
-        
+
         <div class="input-section">
             <div class="input-group">
                 <input type="url" id="urlInput" placeholder="Enter YouTube URL here..." />
@@ -301,7 +379,7 @@
             <div class="example">
                 Example: https://www.youtube.com/watch?v=dQw4w9WgXcQ
             </div>
-            
+
             <div class="language-section" id="languageSection" style="display: none;">
                 <h3>🌐 Available Subtitle Languages:</h3>
                 <div class="language-grid" id="languageGrid"></div>
@@ -310,16 +388,21 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="loading" id="loading">
             <div class="spinner"></div>
             Extracting subtitles...
         </div>
-        
+
         <div class="result-section" id="resultSection" style="display: none;">
             <div class="video-info" id="videoInfo"></div>
+            <div class="copy-container">
+                <button class="copy-btn" onclick="copyTranscript()">
+                    <span>📋</span>
+                    <span>Copy Transcript</span>
+                </button>
+            </div>
             <div class="transcript-box" id="transcriptBox"></div>
-            <button class="copy-btn" onclick="copyTranscript()">📋 Copy Transcript</button>
         </div>
     </div>
 
@@ -327,25 +410,25 @@
         let currentTranscript = '';
         let availableLanguages = [];
         let selectedLanguage = null;
-        
+
         function checkLanguages() {
             const urlInput = document.getElementById('urlInput');
             const loading = document.getElementById('loading');
             const languageSection = document.getElementById('languageSection');
             const resultSection = document.getElementById('resultSection');
             const url = urlInput.value.trim();
-            
+
             if (!url) {
                 showError('Please enter a YouTube URL');
                 return;
             }
-            
+
             // Show loading
             loading.style.display = 'block';
             languageSection.style.display = 'none';
             resultSection.style.display = 'none';
             clearMessages();
-            
+
             // Make API request to get available languages
             fetch('/api/languages', {
                 method: 'POST',
@@ -354,39 +437,39 @@
                 },
                 body: JSON.stringify({ url: url })
             })
-            .then(response => response.json())
-            .then(data => {
-                loading.style.display = 'none';
-                
-                if (data.success) {
-                    displayLanguages(data.languages);
-                    showSuccess('Available languages loaded successfully!');
-                } else {
-                    showError(data.error || 'Could not retrieve available languages');
-                }
-            })
-            .catch(error => {
-                loading.style.display = 'none';
-                showError('Network error: ' + error.message);
-            });
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+
+                    if (data.success) {
+                        displayLanguages(data.languages);
+                        showSuccess('Available languages loaded successfully!');
+                    } else {
+                        showError(data.error || 'Could not retrieve available languages');
+                    }
+                })
+                .catch(error => {
+                    loading.style.display = 'none';
+                    showError('Network error: ' + error.message);
+                });
         }
-        
+
         function displayLanguages(languages) {
             availableLanguages = languages;
             const languageSection = document.getElementById('languageSection');
             const languageGrid = document.getElementById('languageGrid');
-            
+
             languageGrid.innerHTML = '';
-            
+
             languages.forEach((lang, index) => {
                 const langOption = document.createElement('div');
                 langOption.className = 'language-option';
                 langOption.onclick = () => selectLanguage(lang.language_code, langOption);
-                
+
                 const badges = [];
                 if (lang.is_generated) badges.push('Auto-generated');
                 if (lang.is_translatable) badges.push('Translatable');
-                
+
                 langOption.innerHTML = `
                     <input type="radio" name="language" value="${lang.language_code}" ${index === 0 ? 'checked' : ''}>
                     <div class="language-info">
@@ -396,89 +479,89 @@
                         </div>
                     </div>
                 `;
-                
+
                 languageGrid.appendChild(langOption);
             });
-            
+
             // Auto-select first language
             if (languages.length > 0) {
                 selectedLanguage = languages[0].language_code;
                 languageGrid.firstChild.classList.add('selected');
             }
-            
+
             languageSection.style.display = 'block';
         }
-        
+
         function selectLanguage(languageCode, element) {
             // Remove selected class from all options
             document.querySelectorAll('.language-option').forEach(opt => {
                 opt.classList.remove('selected');
             });
-            
+
             // Add selected class to clicked option
             element.classList.add('selected');
-            
+
             // Update radio button
             element.querySelector('input[type="radio"]').checked = true;
-            
+
             selectedLanguage = languageCode;
         }
-        
+
         function extractSubtitles() {
             const urlInput = document.getElementById('urlInput');
             const loading = document.getElementById('loading');
             const resultSection = document.getElementById('resultSection');
             const url = urlInput.value.trim();
-            
+
             if (!url) {
                 showError('Please enter a YouTube URL');
                 return;
             }
-            
+
             if (!selectedLanguage) {
                 showError('Please select a language first');
                 return;
             }
-            
+
             // Show loading
             loading.style.display = 'block';
             resultSection.style.display = 'none';
             clearMessages();
-            
+
             // Make API request
             fetch('/api/transcript', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     url: url,
                     language_code: selectedLanguage
                 })
             })
-            .then(response => response.json())
-            .then(data => {
-                loading.style.display = 'none';
-                
-                if (data.success) {
-                    const selectedLang = availableLanguages.find(lang => lang.language_code === selectedLanguage);
-                    showTranscript(data.transcript, data.video_id, selectedLang);
-                    showSuccess('Subtitles extracted successfully!');
-                } else {
-                    showError(data.error || 'An error occurred');
-                }
-            })
-            .catch(error => {
-                loading.style.display = 'none';
-                showError('Network error: ' + error.message);
-            });
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+
+                    if (data.success) {
+                        const selectedLang = availableLanguages.find(lang => lang.language_code === selectedLanguage);
+                        showTranscript(data.transcript, data.video_id, selectedLang);
+                        showSuccess('Subtitles extracted successfully!');
+                    } else {
+                        showError(data.error || 'An error occurred');
+                    }
+                })
+                .catch(error => {
+                    loading.style.display = 'none';
+                    showError('Network error: ' + error.message);
+                });
         }
-        
+
         function showTranscript(transcript, videoId, language) {
             const resultSection = document.getElementById('resultSection');
             const transcriptBox = document.getElementById('transcriptBox');
             const videoInfo = document.getElementById('videoInfo');
-            
+
             currentTranscript = transcript;
             transcriptBox.textContent = transcript;
             videoInfo.innerHTML = `
@@ -488,51 +571,76 @@
             `;
             resultSection.style.display = 'block';
         }
-        
+
         function copyTranscript() {
             if (currentTranscript) {
                 navigator.clipboard.writeText(currentTranscript).then(() => {
-                    showSuccess('Transcript copied to clipboard!');
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Transcript copied to clipboard!',
+                        icon: 'success',
+                        timer: 2000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end',
+                        background: '#f0f9f0',
+                        color: '#155724',
+                        iconColor: '#28a745'
+                    });
                 }).catch(err => {
-                    showError('Failed to copy transcript');
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'Failed to copy transcript',
+                        icon: 'error',
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end',
+                        background: '#f8d7da',
+                        color: '#721c24',
+                        iconColor: '#dc3545'
+                    });
                 });
             }
         }
-        
+
         function showError(message) {
             clearMessages();
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error';
             errorDiv.textContent = message;
             document.querySelector('.input-section').appendChild(errorDiv);
-            
+
             setTimeout(() => {
                 errorDiv.remove();
             }, 5000);
         }
-        
+
         function showSuccess(message) {
             clearMessages();
             const successDiv = document.createElement('div');
             successDiv.className = 'success';
             successDiv.textContent = message;
             document.querySelector('.input-section').appendChild(successDiv);
-            
+
             setTimeout(() => {
                 successDiv.remove();
             }, 3000);
         }
-        
+
         function clearMessages() {
             document.querySelectorAll('.error, .success').forEach(el => el.remove());
         }
-        
+
         // Allow Enter key to submit
-        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+        document.getElementById('urlInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 checkLanguages();
             }
         });
     </script>
 </body>
+
 </html>
