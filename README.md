@@ -5,11 +5,14 @@ A full-stack Flask application that extracts subtitles from YouTube videos based
 ## Features
 
 - 🎬 Extract subtitles from any YouTube video with available transcripts
+- 🌐 **Language Selection**: Choose from available subtitle languages
+- 🔍 **Language Detection**: Automatically detect all available subtitle languages
+- 🏷️ **Language Info**: Shows auto-generated vs manual subtitles
 - 🌐 Clean, modern web interface
 - 📋 Copy transcript to clipboard
 - 🔄 Real-time loading indicators
 - 📱 Responsive design
-- 🚀 RESTful API endpoint
+- 🚀 RESTful API endpoints
 
 ## Setup Instructions
 
@@ -49,12 +52,15 @@ The application will be available at: `http://localhost:5000`
 ### Web Interface
 1. Open your browser and go to `http://localhost:5000`
 2. Enter a YouTube URL in the input field
-3. Click "Extract Subtitles"
-4. View and copy the extracted transcript
+3. Click "Check Languages" to see available subtitle languages
+4. Select your preferred language from the list
+5. Click "Extract Subtitles" to get the transcript
+6. View and copy the extracted transcript
 
-### API Endpoint
+### API Endpoints
 
-**POST** `/api/transcript`
+**POST** `/api/languages`
+Get available subtitle languages for a video.
 
 Request body:
 ```json
@@ -67,7 +73,41 @@ Response:
 ```json
 {
     "video_id": "VIDEO_ID",
+    "languages": [
+        {
+            "language_code": "en",
+            "language": "English",
+            "is_generated": true,
+            "is_translatable": true
+        },
+        {
+            "language_code": "es",
+            "language": "Spanish",
+            "is_generated": false,
+            "is_translatable": false
+        }
+    ],
+    "success": true
+}
+```
+
+**POST** `/api/transcript`
+Extract transcript in specified language.
+
+Request body:
+```json
+{
+    "url": "https://www.youtube.com/watch?v=VIDEO_ID",
+    "language_code": "en"
+}
+```
+
+Response:
+```json
+{
+    "video_id": "VIDEO_ID",
     "transcript": "Full transcript text...",
+    "language_code": "en",
     "success": true
 }
 ```
@@ -86,11 +126,22 @@ Error response:
 - `https://youtu.be/VIDEO_ID`
 - `https://www.youtube.com/embed/VIDEO_ID`
 
+## Language Selection
+
+The application now supports multiple subtitle languages:
+
+- **Auto-detection**: Automatically detects all available subtitle languages
+- **Manual vs Auto-generated**: Shows whether subtitles are manually created or auto-generated
+- **Translatable**: Indicates if subtitles can be translated to other languages
+- **Language codes**: Displays standard language codes (en, es, fr, etc.)
+- **Fallback**: Falls back to default language if selected language is unavailable
+
 ## Error Handling
 
 The application handles various error scenarios:
 - Invalid YouTube URLs
 - Videos without available transcripts
+- Selected language not available
 - Private or restricted videos
 - Network errors
 - Malformed requests
@@ -98,6 +149,7 @@ The application handles various error scenarios:
 ## Notes
 
 - Only works with videos that have available transcripts/subtitles
-- Supports auto-generated and manual subtitles
+- Supports both manual and auto-generated subtitles
+- Language selection shows additional metadata (auto-generated, translatable)
 - The transcript is returned as plain text without timestamps
-- Some videos may not have subtitles available in your preferred language
+- If a specific language is not available, the system will attempt to use the default language
