@@ -288,6 +288,13 @@
             border-radius: 10px;
         }
 
+        #keyPointsBox ol,
+        ul {
+            padding-left: 1em;
+            /* or 2em for more space */
+            margin: 0;
+        }
+
         .error {
             background: #fee;
             color: #c33;
@@ -400,9 +407,9 @@
         }
 
         .two-column {
-            display: grid;
+            /* display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
+            gap: 30px; */
             margin-top: 20px;
         }
 
@@ -417,6 +424,10 @@
             font-size: 1.2em;
             font-weight: 600;
             color: #333;
+        }
+
+        .keypoints-header {
+            margin-top: 20px
         }
 
         @media (max-width: 900px) {
@@ -479,14 +490,9 @@
             </div>
         </div>
 
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <span id="loadingText">Extracting subtitles...</span>
-        </div>
-
         <div class="result-section" id="resultSection" style="display: none;">
             <div class="video-info" id="videoInfo"></div>
-            
+
             <div class="two-column">
                 <div class="transcript-column">
                     <div class="column-header">
@@ -500,33 +506,39 @@
                 </div>
 
                 <div class="key-points-column">
-                    <div class="column-header">
+
+                    <div class="key-points-section">
+                        <div class="model-selection">
+                            <label for="modelSelect">Choose AI Model:</label>
+                            <select id="modelSelect" class="model-select">
+                                <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B (Faster)
+                                </option>
+                                <option value="llama-3.3-70b-versatile">Llama 3.3 70B (More Accurate)</option>
+                            </select>
+                        </div>
+
+                        <div style="text-align: center;">
+                            <button class="btn btn-secondary" onclick="generateKeyPoints()" id="generateBtn">
+                                🧠 Generate Key Points
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="column-header keypoints-header">
                         <div class="column-title">🔑 Key Points</div>
                         <button class="copy-btn" onclick="copyKeyPoints()" style="display: none;" id="copyKeyPointsBtn">
                             <span>📋</span>
                             <span>Copy Key Points</span>
                         </button>
                     </div>
-                    
-                    <div class="key-points-section">
-                        <div class="model-selection">
-                            <label for="modelSelect">Choose AI Model:</label>
-                            <select id="modelSelect" class="model-select">
-                                <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B (Faster)</option>
-                                <option value="llama-3.3-70b-versatile">Llama 3.3 70B (More Accurate)</option>
-                            </select>
-                        </div>
-                        
-                        <div style="text-align: center;">
-                            <button class="btn btn-secondary" onclick="generateKeyPoints()" id="generateBtn">
-                                🧠 Generate Key Points
-                            </button>
-                        </div>
-                        
-                        <div class="key-points-box" id="keyPointsBox" style="display: none;"></div>
-                    </div>
+                    <div class="key-points-box" id="keyPointsBox" style="display: none;"></div>
                 </div>
             </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <span id="loadingText">Extracting subtitles...</span>
         </div>
     </div>
 
@@ -691,7 +703,7 @@
             const transcriptBox = document.getElementById('transcriptBox');
             const videoInfo = document.getElementById('videoInfo');
             const keyPointsBox = document.getElementById('keyPointsBox');
-            const copyKeyPointsBtn = document.getElementById('copyKeyPointsBtn');
+            const keypointsHeader = document.getElementsByClassName('keypoints-header')[0];
 
             currentTranscript = transcript;
             currentKeyPoints = '';
@@ -701,12 +713,12 @@
                 <strong>Language:</strong> ${language.language} (${language.language_code})
                 ${language.is_generated ? '<span class="language-badge">Auto-generated</span>' : ''}
             `;
-            
+
             // Hide key points section and reset
             keyPointsBox.style.display = 'none';
             keyPointsBox.textContent = '';
-            copyKeyPointsBtn.style.display = 'none';
-            
+            keypointsHeader.style.display = 'none';
+
             resultSection.style.display = 'block';
         }
 
@@ -716,7 +728,7 @@
             const generateBtn = document.getElementById('generateBtn');
             const modelSelect = document.getElementById('modelSelect');
             const keyPointsBox = document.getElementById('keyPointsBox');
-            const copyKeyPointsBtn = document.getElementById('copyKeyPointsBtn');
+            const keypointsHeader = document.getElementsByClassName('keypoints-header')[0];
 
             if (!currentTranscript) {
                 showError('Please extract subtitles first');
@@ -749,19 +761,61 @@
 
                     if (data.success) {
                         currentKeyPoints = data.key_points;
-                        keyPointsBox.textContent = data.key_points;
+                        // keyPointsBox.textContent = data.key_points;
+                        keyPointsBox.innerHTML = formatKeyPointsTextToHTML(data.key_points);
                         keyPointsBox.style.display = 'block';
-                        copyKeyPointsBtn.style.display = 'flex';
-                        showSuccess('Key points generated successfully!');
+                        keypointsHeader.style.display = 'flex';
+                        showSuccessKeyPoints('Key points generated successfully!');
                     } else {
-                        showError(data.error || 'Could not generate key points');
+                        showErrorKeyPoints(data.error || 'Could not generate key points');
                     }
                 })
                 .catch(error => {
                     loading.style.display = 'none';
                     generateBtn.disabled = false;
-                    showError('Network error: ' + error.message);
+                    showErrorKeyPoints('Network error: ' + error.message);
                 });
+        }
+
+        function formatKeyPointsTextToHTML(text) {
+            const lines = text.split('\n');
+            let html = '';
+            let inList = false;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+
+                if (/^\d+\./.test(line)) {
+                    if (!inList) {
+                        html += '<ol>';
+                        inList = true;
+                    }
+
+                    // Ganti **text** dengan <strong>text</strong>
+                    const formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                    html += `<li>${formatted.replace(/^\d+\.\s*/, '')}</li>`;
+
+                } else {
+                    if (inList) {
+                        html += '</ol>';
+                        inList = false;
+                    }
+
+                    if (line.length > 0) {
+                        html += `<p>${line}</p>`;
+                    }
+
+                    if (line.length == 0) {
+                        html += `<br/>`;
+                    }
+                }
+            }
+
+            if (inList) {
+                html += '</ol>';
+            }
+
+            return html;
         }
 
         function copyTranscript() {
@@ -850,6 +904,30 @@
             successDiv.className = 'success';
             successDiv.textContent = message;
             document.querySelector('.input-section').appendChild(successDiv);
+
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+
+        function showErrorKeyPoints(message) {
+            clearMessages();
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            document.querySelector('.key-points-section').after(errorDiv);
+
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        function showSuccessKeyPoints(message) {
+            clearMessages();
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            document.querySelector('.key-points-section').after(successDiv);
 
             setTimeout(() => {
                 successDiv.remove();
