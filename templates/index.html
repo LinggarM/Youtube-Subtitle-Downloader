@@ -526,7 +526,7 @@
 
                     <div class="column-header keypoints-header">
                         <div class="column-title">🔑 Key Points</div>
-                        <button class="copy-btn" onclick="copyKeyPoints()" style="display: none;" id="copyKeyPointsBtn">
+                        <button class="copy-btn" onclick="copyKeyPoints()" id="copyKeyPointsBtn">
                             <span>📋</span>
                             <span>Copy Key Points</span>
                         </button>
@@ -778,37 +778,50 @@
         }
 
         function formatKeyPointsTextToHTML(text) {
+            console.log(text);
             const lines = text.split('\n');
             let html = '';
             let inList = false;
+            let prev_length = 0;
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
 
-                if (/^\d+\./.test(line)) {
+                // Ganti **text** dengan <strong>text</strong>
+                const formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+                if (/^(?:<[^>]+>)*\d+\./.test(formatted)) {
                     if (!inList) {
                         html += '<ol>';
                         inList = true;
                     }
 
-                    // Ganti **text** dengan <strong>text</strong>
-                    const formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-                    html += `<li>${formatted.replace(/^\d+\.\s*/, '')}</li>`;
+                    html += `<li>${formatted.replace(/^((?:\s*<[^>]+>\s*)*)(\d+\.\s*)/, '$1')}</li>`;
 
+                } else if (/^-\s/.test(formatted) && inList) {
+                    const bulletContent = formatted.replace(/^-\s*/, '');
+                    html += `<div>• ${bulletContent}</div>`;
+
+                } else if (formatted.length == 0 && inList) {
+                    html += `<br/>`;
+                } else if (formatted.length > 0 && inList && prev_length > 0) {
+                    html += `<p>${formatted}</p>`;
                 } else {
                     if (inList) {
                         html += '</ol>';
                         inList = false;
                     }
 
-                    if (line.length > 0) {
-                        html += `<p>${line}</p>`;
+                    if (formatted.length > 0) {
+                        html += `<p>${formatted}</p>`;
                     }
 
-                    if (line.length == 0) {
+                    if (formatted.length == 0) {
                         html += `<br/>`;
                     }
                 }
+
+                prev_length = line.length;
             }
 
             if (inList) {
