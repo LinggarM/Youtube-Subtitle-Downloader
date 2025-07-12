@@ -1,9 +1,17 @@
 from flask import Flask, render_template, request, jsonify
 from youtube_transcript_api import YouTubeTranscriptApi
+from dotenv import load_dotenv
 import re
 import os
+import requests
+import json
 
 app = Flask(__name__)
+
+# Groq API configuration
+load_dotenv()
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 def extract_video_id(url):
     """Extract video ID from YouTube URL"""
@@ -61,6 +69,45 @@ def get_transcript_text(video_id, language_code='en'):
             return subtitle
         except Exception as e2:
             return None
+
+def get_key_points(transcript, model="meta-llama/llama-4-scout-17b-16e-instruct"):
+    """Get key points from transcript using Groq API"""
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GROQ_API_KEY}"
+        }
+        
+        content = f"beri poin penting: {transcript}"
+        
+        data = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": content
+                }
+            ]
+        }
+        
+        response = requests.post(GROQ_API_URL, headers=headers, data=json.dumps(data), timeout=30)
+        response.raise_for_status()
+        
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return None
+            
+    except requests.exceptions.RequestException as e:
+        print(f"API request error: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return None
 
 @app.route('/')
 def index():
@@ -121,6 +168,39 @@ def get_transcript():
             'video_id': video_id,
             'transcript': transcript,
             'language_code': language_code,
+            'success': True
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'An error occurred: {str(e)}'}), 500
+
+@app.route('/api/keypoints', methods=['POST'])
+def get_keypoints():
+    """API endpoint to get key points from transcript"""
+    try:
+        data = request.get_json()
+        transcript = data.get('transcript', '').strip()
+        model = data.get('model', 'meta-llama/llama-4-scout-17b-16e-instruct')
+        
+        if not transcript:
+            return jsonify({'error': 'Transcript is required'}), 400
+        
+        # Validate model
+        allowed_models = [
+            'meta-llama/llama-4-scout-17b-16e-instruct',
+            'llama-3.3-70b-versatile'
+        ]
+        if model not in allowed_models:
+            return jsonify({'error': 'Invalid model selected'}), 400
+        
+        # Get key points
+        key_points = get_key_points(transcript, model)
+        if key_points is None:
+            return jsonify({'error': 'Could not generate key points. The AI service may be temporarily unavailable.'}), 500
+        
+        return jsonify({
+            'key_points': key_points,
+            'model': model,
             'success': True
         })
     
