@@ -2,6 +2,10 @@
 
 A full-stack Flask application that extracts subtitles from YouTube videos and generates key points using AI models.
 
+## Preview
+
+![Logo](demo/demo.gif)
+
 ## Features
 
 - 🎬 Extract subtitles from any YouTube video with available transcripts
