@@ -788,7 +788,8 @@
                 const line = lines[i].trim();
 
                 // Ganti **text** dengan <strong>text</strong>
-                const formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                let formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                formatted = formatted.replace(/^\*\s/gm, '• ');
 
                 if (/^(?:<[^>]+>)*\d+\./.test(formatted)) {
                     if (!inList) {
