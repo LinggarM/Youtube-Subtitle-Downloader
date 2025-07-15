@@ -40,6 +40,7 @@
             font-weight: 700;
             background: linear-gradient(45deg, #667eea, #764ba2);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -785,6 +786,14 @@
                 });
         }
 
+        /**
+         * Formats key points text to HTML.
+         * - Converts **text** to <strong>text</strong>
+         * - Converts `code` to <code>code</code>
+         * - Converts numbered lists (1. item) to <ol><li>item</li></ol>
+         * - Converts bullets (- item) to <div>• item</div>
+         * - Handles indentation for nested bullets (+ item)
+         */
         function formatKeyPointsTextToHTML(text) {
             console.log(text);
             const lines = text.split('\n');
