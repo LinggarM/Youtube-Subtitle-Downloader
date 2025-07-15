@@ -803,6 +803,10 @@
                     const bulletContent = formatted.replace(/^-\s*/, '');
                     html += `<div>• ${bulletContent}</div>`;
 
+                } else if (/^\+\s/ .test(formatted) && inList) {
+                    const bulletContent = formatted.replace(/^\+\s*/, '');
+                    html += `<div style="margin-left: 15px">• ${bulletContent}</div>`;
+
                 } else if (formatted.length == 0 && inList) {
                     html += `<br/>`;
                 } else if (formatted.length > 0 && inList && prev_length > 0) {
