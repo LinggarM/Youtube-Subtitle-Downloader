@@ -430,6 +430,14 @@
             margin-top: 20px
         }
 
+        code {
+            font-family: monospace;
+            background-color: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #d63384;
+        }
+
         @media (max-width: 900px) {
             .two-column {
                 grid-template-columns: 1fr;
@@ -789,6 +797,7 @@
 
                 // Ganti **text** dengan <strong>text</strong>
                 let formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                formatted = formatted.replace(/`([^`]+?)`/g, '<code>$1</code>');
                 formatted = formatted.replace(/^\*\s/gm, '• ');
 
                 if (/^(?:<[^>]+>)*\d+\./.test(formatted)) {
@@ -803,7 +812,7 @@
                     const bulletContent = formatted.replace(/^-\s*/, '');
                     html += `<div>• ${bulletContent}</div>`;
 
-                } else if (/^\+\s/ .test(formatted) && inList) {
+                } else if (/^\+\s/.test(formatted) && inList) {
                     const bulletContent = formatted.replace(/^\+\s*/, '');
                     html += `<div style="margin-left: 15px">• ${bulletContent}</div>`;
 
