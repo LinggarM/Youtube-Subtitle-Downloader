@@ -808,6 +808,7 @@
                 let formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
                 formatted = formatted.replace(/`([^`]+?)`/g, '<code>$1</code>');
                 formatted = formatted.replace(/^\*\s/gm, '• ');
+                formatted = formatted.replace(/^\+\s(.*)$/gm, '<div style="margin-left: 15px">• $1</div>');
 
                 if (/^(?:<[^>]+>)*\d+\./.test(formatted)) {
                     if (!inList) {
