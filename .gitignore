@@ -1,4 +1,50 @@
-.env
-testing.html
-Notes.txt
-Notes_Old.txt
+# Dependencies
+node_modules/
+vendor/
+
+# Runtime cache
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Framework cache
+.next/
+.nuxt/
+.output/
+.cache/
+.parcel-cache/
+.turbo/
+bootstrap/cache/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+
+# Package manager cache
+.yarn/
+.pnp.*
+.npm/
+
+# IDE / Editor (exclude sftp.json)
+/.idea/
+/.vscode/*
+!/.vscode/sftp.json
+*.sublime-workspace
+*.sublime-project
+/nbproject/
+.vs/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Binaries / compiled
+*.o
+*.a
+*.so
+*.dylib
+*.wasm
+*.class
