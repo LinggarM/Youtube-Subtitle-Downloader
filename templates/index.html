@@ -552,6 +552,7 @@
     </div>
 
     <script>
+        let currentVideoTitle = '';
         let currentTranscript = '';
         let currentKeyPoints = '';
         let availableLanguages = [];
@@ -579,12 +580,14 @@
 
             // Make API request to get available languages
             fetch('/api/languages', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ url: url })
-            })
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        url: url
+                    })
+                })
                 .then(response => response.json())
                 .then(data => {
                     loading.style.display = 'none';
@@ -655,11 +658,8 @@
             selectedLanguage = languageCode;
         }
 
-        function extractSubtitles() {
+        async function extractSubtitles() {
             const urlInput = document.getElementById('urlInput');
-            const loading = document.getElementById('loading');
-            const loadingText = document.getElementById('loadingText');
-            const resultSection = document.getElementById('resultSection');
             const url = urlInput.value.trim();
 
             if (!url) {
@@ -672,39 +672,63 @@
                 return;
             }
 
-            // Show loading
+            const loading = document.getElementById('loading');
+            const loadingText = document.getElementById('loadingText');
+            const resultSection = document.getElementById('resultSection');
+
             loading.style.display = 'block';
             loadingText.textContent = 'Extracting subtitles...';
             resultSection.style.display = 'none';
             clearMessages();
 
-            // Make API request
-            fetch('/api/transcript', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    url: url,
-                    language_code: selectedLanguage
-                })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    loading.style.display = 'none';
+            try {
+                // 🔴 ambil title dulu
+                let videoTitle = '';
+                try {
+                    const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${url}&format=json`);
+                    const oembedData = await oembedRes.json();
+                    videoTitle = oembedData.title;
+                } catch (e) {
+                    console.warn('Failed to fetch title:', e);
+                }
 
-                    if (data.success) {
-                        const selectedLang = availableLanguages.find(lang => lang.language_code === selectedLanguage);
-                        showTranscript(data.transcript, data.video_id, selectedLang);
-                        showSuccess('Subtitles extracted successfully!');
-                    } else {
-                        showError(data.error || 'An error occurred');
-                    }
-                })
-                .catch(error => {
-                    loading.style.display = 'none';
-                    showError('Network error: ' + error.message);
+                // 🔴 ambil transcript
+                const response = await fetch('/api/transcript', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        language_code: selectedLanguage
+                    })
                 });
+
+                const data = await response.json();
+                loading.style.display = 'none';
+
+                if (data.success) {
+                    currentVideoTitle = videoTitle;
+
+                    const selectedLang = availableLanguages.find(
+                        lang => lang.language_code === selectedLanguage
+                    );
+
+                    showTranscript(
+                        data.transcript,
+                        data.video_id,
+                        selectedLang
+                    );
+
+                    showSuccess('Subtitles extracted successfully!');
+                } else {
+                    showError(data.error || 'An error occurred');
+                }
+
+            } catch (error) {
+                loading.style.display = 'none';
+                showError('Network error: ' + error.message);
+            }
         }
 
         function showTranscript(transcript, videoId, language) {
@@ -718,6 +742,7 @@
             currentKeyPoints = '';
             transcriptBox.textContent = transcript;
             videoInfo.innerHTML = `
+                <strong>Title:</strong> ${currentVideoTitle || '-'}<br>
                 <strong>Video ID:</strong> ${videoId}<br>
                 <strong>Language:</strong> ${language.language} (${language.language_code})
                 ${language.is_generated ? '<span class="language-badge">Auto-generated</span>' : ''}
@@ -754,15 +779,15 @@
 
             // Make API request
             fetch('/api/keypoints', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    transcript: currentTranscript,
-                    model: selectedModel
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        transcript: currentTranscript,
+                        model: selectedModel
+                    })
                 })
-            })
                 .then(response => response.json())
                 .then(data => {
                     loading.style.display = 'none';
