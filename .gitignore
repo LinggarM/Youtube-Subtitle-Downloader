@@ -1,50 +1,23 @@
-# Dependencies
-node_modules/
-vendor/
-
-# Runtime cache
-__pycache__/
-*.pyc
-.venv/
-venv/
-
-# Framework cache
-.next/
-.nuxt/
-.output/
-.cache/
-.parcel-cache/
-.turbo/
-bootstrap/cache/
-storage/framework/cache/
-storage/framework/sessions/
-storage/framework/views/
-
-# Package manager cache
-.yarn/
-.pnp.*
-.npm/
-
-# IDE / Editor (exclude sftp.json)
-/.idea/
-/.vscode/*
-!/.vscode/sftp.json
+/nbproject/
+/.idea/*
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
 *.sublime-workspace
 *.sublime-project
-/nbproject/
-.vs/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Binaries / compiled
-*.o
-*.a
-*.so
-*.dylib
-*.wasm
-*.class
+node_modules/
+vendor/
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+*.egg-info/
+.tox/
+.bundle/
+Pods/
+.gradle/
+.terraform/
+bower_components/
+.cache/
+coverage/
