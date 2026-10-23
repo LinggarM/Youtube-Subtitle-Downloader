@@ -700,7 +700,8 @@
                     },
                     body: JSON.stringify({
                         url: url,
-                        language_code: selectedLanguage
+                        language_code: selectedLanguage,
+                        video_title: videoTitle
                     })
                 });
 
@@ -708,7 +709,7 @@
                 loading.style.display = 'none';
 
                 if (data.success) {
-                    currentVideoTitle = videoTitle;
+                    currentVideoTitle = data.video_title || videoTitle;
 
                     const selectedLang = availableLanguages.find(
                         lang => lang.language_code === selectedLanguage

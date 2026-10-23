@@ -227,6 +227,7 @@ requests>=2.28.0
 - The transcript is returned as plain text without timestamps
 - Key points are formatted with HTML for better presentation
 - All data is processed in-memory (no persistent storage)
+- Successful subtitle extractions are recorded in `submissions.log` as JSON Lines, including the submitted URL, video title, video ID, and timestamp
 
 ## Contributing
 

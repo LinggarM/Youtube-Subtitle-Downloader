@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from youtube_transcript_api import YouTubeTranscriptApi
 from dotenv import load_dotenv
+from datetime import datetime, timezone
 import re
 import os
 import requests
@@ -12,6 +13,35 @@ app = Flask(__name__)
 load_dotenv()
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+SUBMISSION_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'submissions.log')
+
+def get_video_title(video_id):
+    """Get the title of a YouTube video using its oEmbed endpoint"""
+    response = requests.get(
+        "https://www.youtube.com/oembed",
+        params={
+            'url': f"https://www.youtube.com/watch?v={video_id}",
+            'format': 'json'
+        },
+        timeout=10
+    )
+    response.raise_for_status()
+    response_data = response.json()
+    if not isinstance(response_data, dict):
+        return None
+    title = response_data.get('title')
+    return title.strip() if isinstance(title, str) and title.strip() else None
+
+def log_submission(url, video_id, video_title):
+    """Append a successful transcript extraction to the submission log"""
+    entry = {
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'url': url,
+        'video_id': video_id,
+        'title': video_title
+    }
+    with open(SUBMISSION_LOG, 'a', encoding='utf-8') as log_file:
+        log_file.write(json.dumps(entry, ensure_ascii=False) + '\n')
 
 def extract_video_id(url):
     """Extract video ID from YouTube URL"""
@@ -150,6 +180,7 @@ def get_transcript():
         data = request.get_json()
         url = data.get('url', '').strip()
         language_code = data.get('language_code', 'en')
+        video_title = data.get('video_title')
         
         if not url:
             return jsonify({'error': 'URL is required'}), 400
@@ -163,9 +194,19 @@ def get_transcript():
         transcript = get_transcript_text(video_id, language_code)
         if transcript is None:
             return jsonify({'error': 'Could not retrieve transcript. Video may not have subtitles in the selected language or may be private.'}), 404
+
+        if not isinstance(video_title, str) or not video_title.strip():
+            try:
+                video_title = get_video_title(video_id)
+            except requests.exceptions.RequestException as e:
+                app.logger.warning("Could not retrieve title for video %s: %s", video_id, e)
+                video_title = None
+        video_title = video_title.strip() if isinstance(video_title, str) and video_title.strip() else 'Unknown video title'
+        log_submission(url, video_id, video_title)
         
         return jsonify({
             'video_id': video_id,
+            'video_title': video_title,
             'transcript': transcript,
             'language_code': language_code,
             'success': True
