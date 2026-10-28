@@ -21,8 +21,8 @@ A full-stack Flask application that extracts subtitles from YouTube videos and g
 
 ## AI Models Available
 
-- **Llama 4 Scout 17B**: Faster processing for quick key point generation
-- **Llama 3.3 70B**: More accurate analysis for detailed insights
+- **GPT-OSS 20B**: Faster processing for quick key point generation
+- **GPT-OSS 120B**: More capable analysis for detailed insights
 
 ## Setup Instructions
 
@@ -134,7 +134,7 @@ Request body:
 ```json
 {
     "transcript": "Full transcript text...",
-    "model": "meta-llama/llama-4-scout-17b-16e-instruct"
+    "model": "openai/gpt-oss-20b"
 }
 ```
 
@@ -142,7 +142,7 @@ Response:
 ```json
 {
     "key_points": "Generated key points...",
-    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "model": "openai/gpt-oss-20b",
     "success": true
 }
 ```
@@ -178,7 +178,7 @@ Response:
 
 The application integrates with Groq API to generate intelligent key points:
 
-- **Multiple Models**: Choose between speed (Llama 4 Scout) and accuracy (Llama 3.3 70B)
+- **Multiple Models**: Choose between speed (GPT-OSS 20B) and deeper analysis (GPT-OSS 120B)
 - **Formatted Output**: AI-generated points are formatted with proper HTML rendering
 - **Indonesian Support**: Prompts in Indonesian for localized key point generation
 - **Error Handling**: Robust error handling for API failures

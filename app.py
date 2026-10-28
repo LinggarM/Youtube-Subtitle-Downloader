@@ -100,7 +100,14 @@ def get_transcript_text(video_id, language_code='en'):
         except Exception as e2:
             return None
 
-def get_key_points(transcript, model="meta-llama/llama-4-scout-17b-16e-instruct"):
+
+class GroqAPIError(Exception):
+    def __init__(self, status_code, message):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def get_key_points(transcript, model="openai/gpt-oss-20b"):
     """Get key points from transcript using Groq API"""
     try:
         headers = {
@@ -120,24 +127,29 @@ def get_key_points(transcript, model="meta-llama/llama-4-scout-17b-16e-instruct"
             ]
         }
         
-        response = requests.post(GROQ_API_URL, headers=headers, data=json.dumps(data), timeout=30)
+        response = requests.post(GROQ_API_URL, headers=headers, json=data, timeout=30)
         response.raise_for_status()
         
         response_data = response.json()
-        if 'choices' in response_data and len(response_data['choices']) > 0:
-            return response_data['choices'][0]['message']['content']
-        else:
-            return None
+        choices = response_data.get('choices') if isinstance(response_data, dict) else None
+        if not isinstance(choices, list) or not choices:
+            raise GroqAPIError(502, 'Groq returned an unexpected response format.')
+        message = choices[0].get('message') if isinstance(choices[0], dict) else None
+        content = message.get('content') if isinstance(message, dict) else None
+        if not isinstance(content, str):
+            raise GroqAPIError(502, 'Groq returned an unexpected response format.')
+        return content
             
-    except requests.exceptions.RequestException as e:
-        print(f"API request error: {e}")
-        return None
-    except json.JSONDecodeError as e:
-        print(f"JSON decode error: {e}")
-        return None
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        return None
+    except requests.exceptions.HTTPError as e:
+        response = e.response
+        try:
+            error_data = response.json()
+        except ValueError:
+            error_message = response.text.strip() or str(e)
+        else:
+            api_error = error_data.get('error') if isinstance(error_data, dict) else None
+            error_message = api_error.get('message') if isinstance(api_error, dict) else str(api_error or e)
+        raise GroqAPIError(response.status_code, error_message) from e
 
 @app.route('/')
 def index():
@@ -221,23 +233,30 @@ def get_keypoints():
     try:
         data = request.get_json()
         transcript = data.get('transcript', '').strip()
-        model = data.get('model', 'meta-llama/llama-4-scout-17b-16e-instruct')
+        model = data.get('model', 'openai/gpt-oss-20b')
         
         if not transcript:
             return jsonify({'error': 'Transcript is required'}), 400
         
         # Validate model
         allowed_models = [
-            'meta-llama/llama-4-scout-17b-16e-instruct',
-            'llama-3.3-70b-versatile'
+            'openai/gpt-oss-20b',
+            'openai/gpt-oss-120b'
         ]
         if model not in allowed_models:
             return jsonify({'error': 'Invalid model selected'}), 400
+
+        if not GROQ_API_KEY:
+            return jsonify({'error': 'GROQ_API_KEY is not configured. Add a valid Groq API key to the .env file.'}), 503
         
-        # Get key points
-        key_points = get_key_points(transcript, model)
-        if key_points is None:
-            return jsonify({'error': 'Could not generate key points. The AI service may be temporarily unavailable.'}), 500
+        try:
+            key_points = get_key_points(transcript, model)
+        except GroqAPIError as e:
+            app.logger.error("Groq API returned %s: %s", e.status_code, e)
+            return jsonify({'error': f'Groq API error ({e.status_code}): {e}'}), 502
+        except requests.exceptions.RequestException:
+            app.logger.exception("Could not reach Groq API")
+            return jsonify({'error': 'Could not reach Groq API. Check your internet connection and try again.'}), 502
         
         return jsonify({
             'key_points': key_points,
