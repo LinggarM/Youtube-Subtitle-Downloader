@@ -289,6 +289,25 @@
             border-radius: 10px;
         }
 
+        #keyPointsBox table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            white-space: normal;
+        }
+
+        #keyPointsBox th,
+        #keyPointsBox td {
+            border: 1px solid #d4edda;
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        #keyPointsBox th {
+            background: #eaf7ec;
+        }
+
         #keyPointsBox ol,
         ul {
             padding-left: 1em;
@@ -817,68 +836,169 @@
          * - Converts **text** to <strong>text</strong>
          * - Converts `code` to <code>code</code>
          * - Converts numbered lists (1. item) to <ol><li>item</li></ol>
-         * - Converts bullets (- item) to <div>• item</div>
-         * - Handles indentation for nested bullets (+ item)
+         * - Converts Markdown tables, lists, headings, and inline formatting
+         * - Preserves literal <br> tags used as line breaks inside table cells
          */
         function formatKeyPointsTextToHTML(text) {
-            console.log(text);
-            const lines = text.split('\n');
-            let html = '';
-            let inList = false;
-            let prev_length = 0;
+            if (text == null) return '';
+            if (typeof text !== 'string') {
+                try {
+                    text = typeof text === 'object' ? JSON.stringify(text, null, 2) : String(text);
+                } catch (error) {
+                    text = String(text);
+                }
+            }
 
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
+            const escapeHTML = value => value.replace(/[&<>"']/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[character]);
+            const inline = value => {
+                let result = escapeHTML(value);
+                result = result.replace(/&lt;br\s*\/?&gt;/gi, '\u0001');
+                const codeSpans = [];
+                result = result.replace(/`([^`]+)`/g, (_, code) => {
+                    codeSpans.push(`<code>${code}</code>`);
+                    return `\u0000${codeSpans.length - 1}\u0000`;
+                });
+                result = result
+                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/__(.+?)__/g, '<strong>$1</strong>')
+                    .replace(/~~(.+?)~~/g, '<del>$1</del>')
+                    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+                    .replace(/(^|[^_])_([^_\n]+)_/g, '$1<em>$2</em>')
+                    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+                return result
+                    .replace(/\u0000(\d+)\u0000/g, (_, index) => codeSpans[Number(index)])
+                    .replace(/\u0001/g, '<br>');
+            };
 
-                // Ganti **text** dengan <strong>text</strong>
-                let formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-                formatted = formatted.replace(/`([^`]+?)`/g, '<code>$1</code>');
-                formatted = formatted.replace(/^\*\s/gm, '• ');
-                formatted = formatted.replace(/^\+\s(.*)$/gm, '<div style="margin-left: 15px">• $1</div>');
-
-                if (/^(?:<[^>]+>)*\d+\./.test(formatted)) {
-                    if (!inList) {
-                        html += '<ol>';
-                        inList = true;
-                    }
-
-                    html += `<li>${formatted.replace(/^((?:\s*<[^>]+>\s*)*)(\d+\.\s*)/, '$1')}</li>`;
-
-                } else if (/^-\s/.test(formatted) && inList) {
-                    const bulletContent = formatted.replace(/^-\s*/, '');
-                    html += `<div>• ${bulletContent}</div>`;
-
-                } else if (/^\+\s/.test(formatted) && inList) {
-                    const bulletContent = formatted.replace(/^\+\s*/, '');
-                    html += `<div style="margin-left: 15px">• ${bulletContent}</div>`;
-
-                } else if (formatted.length == 0 && inList) {
-                    html += `<br/>`;
-                } else if (formatted.length > 0 && inList && prev_length > 0) {
-                    html += `<p>${formatted}</p>`;
-                } else {
-                    if (inList) {
-                        html += '</ol>';
-                        inList = false;
-                    }
-
-                    if (formatted.length > 0) {
-                        html += `<p>${formatted}</p>`;
-                    }
-
-                    if (formatted.length == 0) {
-                        html += `<br/>`;
+            const lines = text.replace(/\r\n?/g, '\n').split('\n');
+            const output = [];
+            let paragraph = [];
+            let listType = null;
+            let codeBlock = false;
+            let codeLines = [];
+            const flushParagraph = () => {
+                if (paragraph.length) {
+                    output.push(`<p>${paragraph.map(inline).join('<br>')}</p>`);
+                    paragraph = [];
+                }
+            };
+            const closeList = () => {
+                if (listType) {
+                    output.push(`</${listType}>`);
+                    listType = null;
+                }
+            };
+            const splitTableRow = value => {
+                const cells = [];
+                let cell = '';
+                for (let index = 0; index < value.length; index++) {
+                    if (value[index] === '\\' && value[index + 1] === '|') {
+                        cell += '|';
+                        index++;
+                    } else if (value[index] === '|') {
+                        cells.push(cell.trim());
+                        cell = '';
+                    } else {
+                        cell += value[index];
                     }
                 }
+                cells.push(cell.trim());
+                if (cells[0] === '') cells.shift();
+                if (cells[cells.length - 1] === '') cells.pop();
+                return cells;
+            };
 
-                prev_length = line.length;
+            for (let index = 0; index < lines.length; index++) {
+                const rawLine = lines[index];
+                const line = rawLine.trim();
+                if (/^(```|~~~)/.test(line)) {
+                    flushParagraph();
+                    closeList();
+                    if (codeBlock) {
+                        output.push(`<pre><code>${escapeHTML(codeLines.join('\n'))}</code></pre>`);
+                        codeLines = [];
+                    }
+                    codeBlock = !codeBlock;
+                    continue;
+                }
+                if (codeBlock) {
+                    codeLines.push(rawLine);
+                    continue;
+                }
+                if (line.includes('|') && index + 1 < lines.length) {
+                    const header = splitTableRow(line);
+                    const separator = splitTableRow(lines[index + 1].trim());
+                    const isTableSeparator = separator.length === header.length &&
+                        separator.every(cell => /^:?-{3,}:?$/.test(cell));
+                    if (header.length && isTableSeparator) {
+                        flushParagraph();
+                        closeList();
+                        const rows = [];
+                        index++;
+                        while (index + 1 < lines.length && lines[index + 1].includes('|') &&
+                            splitTableRow(lines[index + 1].trim()).length === header.length) {
+                            index++;
+                            rows.push(splitTableRow(lines[index].trim()));
+                        }
+                        const renderRow = (cells, tag) => {
+                            const columns = header.length;
+                            const cellsHTML = Array.from({ length: columns }, (_, cellIndex) =>
+                                `<${tag}>${inline(cells[cellIndex] || '')}</${tag}>`
+                            ).join('');
+                            return `<tr>${cellsHTML}</tr>`;
+                        };
+                        output.push(
+                            `<table><thead>${renderRow(header, 'th')}</thead>` +
+                            `<tbody>${rows.map(row => renderRow(row, 'td')).join('')}</tbody></table>`
+                        );
+                        continue;
+                    }
+                }
+                if (!line) {
+                    flushParagraph();
+                    closeList();
+                    continue;
+                }
+
+                const heading = line.match(/^(#{1,6})\s+(.+)$/);
+                if (heading) {
+                    flushParagraph(); closeList();
+                    const level = heading[1].length;
+                    output.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+                    continue;
+                }
+                if (/^(---+|___+|\*\*\*+)$/.test(line)) {
+                    flushParagraph(); closeList(); output.push('<hr>');
+                    continue;
+                }
+                const quote = line.match(/^>\s?(.*)$/);
+                if (quote) {
+                    flushParagraph(); closeList();
+                    output.push(`<blockquote>${inline(quote[1])}</blockquote>`);
+                    continue;
+                }
+                const item = line.match(/^(?:[-+*]\s+|\d+[.)]\s+)(.*)$/);
+                if (item) {
+                    flushParagraph();
+                    const type = /^\d+[.)]\s+/.test(line) ? 'ol' : 'ul';
+                    if (listType !== type) {
+                        closeList();
+                        output.push(`<${type}>`);
+                        listType = type;
+                    }
+                    output.push(`<li>${inline(item[1])}</li>`);
+                    continue;
+                }
+                closeList();
+                paragraph.push(line);
             }
 
-            if (inList) {
-                html += '</ol>';
-            }
-
-            return html;
+            flushParagraph();
+            closeList();
+            if (codeBlock) output.push(`<pre><code>${escapeHTML(codeLines.join('\n'))}</code></pre>`);
+            return output.join('');
         }
 
         function copyTranscript() {
