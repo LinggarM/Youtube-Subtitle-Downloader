@@ -539,9 +539,11 @@
                         <div class="model-selection">
                             <label for="modelSelect">Choose AI Model:</label>
                             <select id="modelSelect" class="model-select">
-                                <option value="openai/gpt-oss-20b">GPT-OSS 20B (Faster)
+                                <option value="openai/gpt-oss-20b" data-provider="groq">Groq - GPT-OSS 20B (Faster)
                                 </option>
-                                <option value="openai/gpt-oss-120b">GPT-OSS 120B (More Capable)</option>
+                                <option value="openai/gpt-oss-120b" data-provider="groq">Groq - GPT-OSS 120B (More Capable)</option>
+                                <option value="gemini-3.8-flash" data-provider="google">Google AI Studio - Gemini 3.8 Flash</option>
+                                <option value="gemini-3.1-pro-preview" data-provider="google">Google AI Studio - Gemini 3.1 Pro (Preview)</option>
                             </select>
                         </div>
 
@@ -790,6 +792,7 @@
             }
 
             const selectedModel = modelSelect.value;
+            const selectedProvider = modelSelect.selectedOptions[0].dataset.provider;
 
             // Show loading
             loading.style.display = 'block';
@@ -805,6 +808,7 @@
                     },
                     body: JSON.stringify({
                         transcript: currentTranscript,
+                        provider: selectedProvider,
                         model: selectedModel
                     })
                 })

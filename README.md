@@ -12,7 +12,7 @@ A full-stack Flask application that extracts subtitles from YouTube videos and g
 - 🌐 **Language Selection**: Choose from available subtitle languages with detailed information
 - 🔍 **Language Detection**: Automatically detect all available subtitle languages
 - 🏷️ **Language Info**: Shows auto-generated vs manual subtitles and translatability
-- 🧠 **AI-Powered Key Points**: Generate key insights using Groq API with multiple AI models
+- 🧠 **AI-Powered Key Points**: Generate key insights using Groq or Google AI Studio
 - 🎨 Modern, responsive web interface with glassmorphism design
 - 📋 Copy transcript and key points to clipboard
 - 🔄 Real-time loading indicators with smooth animations
@@ -23,6 +23,8 @@ A full-stack Flask application that extracts subtitles from YouTube videos and g
 
 - **GPT-OSS 20B**: Faster processing for quick key point generation
 - **GPT-OSS 120B**: More capable analysis for detailed insights
+- **Gemini 3.8 Flash**: Fast responses using Google AI Studio
+- **Gemini 3.1 Pro Preview**: More capable analysis using Google AI Studio
 
 ## Setup Instructions
 
@@ -42,9 +44,11 @@ pip install Flask youtube-transcript-api python-dotenv requests
 Create a `.env` file in the project root:
 ```env
 GROQ_API_KEY=your_groq_api_key_here
+GOOGLE_AI_STUDIO_API_KEY=your_google_ai_studio_api_key_here
 ```
 
 Get your Groq API key from: https://console.groq.com/
+Get your Google AI Studio API key from: https://aistudio.google.com/apikey
 
 ### 3. Project Structure
 
@@ -134,15 +138,19 @@ Request body:
 ```json
 {
     "transcript": "Full transcript text...",
-    "model": "openai/gpt-oss-20b"
+    "provider": "google",
+    "model": "gemini-3.8-flash"
 }
 ```
+
+Supported providers are `groq` and `google`. Select a model belonging to that provider. The `provider` field is optional for existing clients and defaults to `groq`.
 
 Response:
 ```json
 {
     "key_points": "Generated key points...",
-    "model": "openai/gpt-oss-20b",
+    "provider": "google",
+    "model": "gemini-3.8-flash",
     "success": true
 }
 ```
@@ -176,9 +184,9 @@ Response:
 
 ## AI-Powered Key Points
 
-The application integrates with Groq API to generate intelligent key points:
+The application integrates with Groq and Google AI Studio to generate intelligent key points:
 
-- **Multiple Models**: Choose between speed (GPT-OSS 20B) and deeper analysis (GPT-OSS 120B)
+- **Multiple Providers and Models**: Choose Groq GPT-OSS 20B/120B or Google Gemini 3.8 Flash/3.1 Pro Preview
 - **Formatted Output**: AI-generated points are formatted with proper HTML rendering
 - **Indonesian Support**: Prompts in Indonesian for localized key point generation
 - **Error Handling**: Robust error handling for API failures
@@ -215,14 +223,14 @@ requests>=2.28.0
 ```
 
 ### External Services
-- **Groq API**: For AI-powered key point generation
+- **Groq API** and/or **Google AI Studio API**: For AI-powered key point generation
 - **YouTube**: For video transcript extraction
 
 ## Notes
 
 - Only works with videos that have available transcripts/subtitles
 - Supports both manual and auto-generated subtitles
-- AI key point generation requires valid Groq API key
+- AI key point generation requires the API key for the selected provider (`GROQ_API_KEY` or `GOOGLE_AI_STUDIO_API_KEY`)
 - Indonesian language prompts are used for key point generation
 - The transcript is returned as plain text without timestamps
 - Key points are formatted with HTML for better presentation

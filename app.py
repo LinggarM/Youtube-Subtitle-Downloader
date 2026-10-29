@@ -9,10 +9,12 @@ import json
 
 app = Flask(__name__)
 
-# Groq API configuration
+# AI API configuration
 load_dotenv()
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GOOGLE_AI_STUDIO_API_KEY = os.getenv("GOOGLE_AI_STUDIO_API_KEY")
+GOOGLE_AI_STUDIO_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 SUBMISSION_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'submissions.log')
 
 def get_video_title(video_id):
@@ -101,44 +103,60 @@ def get_transcript_text(video_id, language_code='en'):
             return None
 
 
-class GroqAPIError(Exception):
+class AIAPIError(Exception):
     def __init__(self, status_code, message):
         super().__init__(message)
         self.status_code = status_code
 
 
-def get_key_points(transcript, model="openai/gpt-oss-20b"):
-    """Get key points from transcript using Groq API"""
+def get_key_points(transcript, provider, model):
+    """Get key points from a configured AI provider."""
+    content = f"beri poin penting: {transcript}"
+
     try:
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {GROQ_API_KEY}"
-        }
-        
-        content = f"beri poin penting: {transcript}"
-        
-        data = {
-            "model": model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": content
-                }
-            ]
-        }
-        
-        response = requests.post(GROQ_API_URL, headers=headers, json=data, timeout=30)
+        if provider == 'groq':
+            response = requests.post(
+                GROQ_API_URL,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {GROQ_API_KEY}"
+                },
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": content}]
+                },
+                timeout=30
+            )
+        else:
+            response = requests.post(
+                f"{GOOGLE_AI_STUDIO_API_URL}/{model}:generateContent",
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": GOOGLE_AI_STUDIO_API_KEY
+                },
+                json={
+                    "contents": [{"parts": [{"text": content}]}]
+                },
+                timeout=(10, 120)
+            )
         response.raise_for_status()
         
         response_data = response.json()
-        choices = response_data.get('choices') if isinstance(response_data, dict) else None
-        if not isinstance(choices, list) or not choices:
-            raise GroqAPIError(502, 'Groq returned an unexpected response format.')
-        message = choices[0].get('message') if isinstance(choices[0], dict) else None
-        content = message.get('content') if isinstance(message, dict) else None
-        if not isinstance(content, str):
-            raise GroqAPIError(502, 'Groq returned an unexpected response format.')
-        return content
+        if provider == 'groq':
+            choices = response_data.get('choices') if isinstance(response_data, dict) else None
+            message = choices[0].get('message') if isinstance(choices, list) and choices and isinstance(choices[0], dict) else None
+            result = message.get('content') if isinstance(message, dict) else None
+        else:
+            candidates = response_data.get('candidates') if isinstance(response_data, dict) else None
+            candidate_content = candidates[0].get('content') if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict) else None
+            parts = candidate_content.get('parts') if isinstance(candidate_content, dict) else None
+            result = '\n'.join(
+                part['text'] for part in parts
+                if isinstance(part, dict) and isinstance(part.get('text'), str)
+            ) if isinstance(parts, list) else None
+        if not isinstance(result, str):
+            raise AIAPIError(502, f'{provider} returned an unexpected response format.')
+        return result
             
     except requests.exceptions.HTTPError as e:
         response = e.response
@@ -149,7 +167,7 @@ def get_key_points(transcript, model="openai/gpt-oss-20b"):
         else:
             api_error = error_data.get('error') if isinstance(error_data, dict) else None
             error_message = api_error.get('message') if isinstance(api_error, dict) else str(api_error or e)
-        raise GroqAPIError(response.status_code, error_message) from e
+        raise AIAPIError(response.status_code, error_message) from e
 
 @app.route('/')
 def index():
@@ -233,33 +251,41 @@ def get_keypoints():
     try:
         data = request.get_json()
         transcript = data.get('transcript', '').strip()
+        provider = data.get('provider', 'groq')
         model = data.get('model', 'openai/gpt-oss-20b')
         
         if not transcript:
             return jsonify({'error': 'Transcript is required'}), 400
         
-        # Validate model
-        allowed_models = [
-            'openai/gpt-oss-20b',
-            'openai/gpt-oss-120b'
-        ]
-        if model not in allowed_models:
+        allowed_models = {
+            'groq': ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'],
+            'google': ['gemini-3.8-flash', 'gemini-3.1-pro-preview']
+        }
+        if provider not in allowed_models or model not in allowed_models[provider]:
             return jsonify({'error': 'Invalid model selected'}), 400
 
-        if not GROQ_API_KEY:
-            return jsonify({'error': 'GROQ_API_KEY is not configured. Add a valid Groq API key to the .env file.'}), 503
+        api_key = GROQ_API_KEY if provider == 'groq' else GOOGLE_AI_STUDIO_API_KEY
+        key_name = 'GROQ_API_KEY' if provider == 'groq' else 'GOOGLE_AI_STUDIO_API_KEY'
+        if not api_key:
+            return jsonify({'error': f'{key_name} is not configured. Add a valid API key to the .env file.'}), 503
         
         try:
-            key_points = get_key_points(transcript, model)
-        except GroqAPIError as e:
-            app.logger.error("Groq API returned %s: %s", e.status_code, e)
-            return jsonify({'error': f'Groq API error ({e.status_code}): {e}'}), 502
+            key_points = get_key_points(transcript, provider, model)
+        except AIAPIError as e:
+            app.logger.error("%s API returned %s: %s", provider, e.status_code, e)
+            return jsonify({'error': f'{provider} API error ({e.status_code}): {e}'}), 502
+        except requests.exceptions.Timeout:
+            app.logger.warning("%s API request timed out for model %s", provider, model)
+            return jsonify({
+                'error': f'{provider} API request timed out. Try again or choose a faster model.'
+            }), 504
         except requests.exceptions.RequestException:
-            app.logger.exception("Could not reach Groq API")
-            return jsonify({'error': 'Could not reach Groq API. Check your internet connection and try again.'}), 502
+            app.logger.exception("Could not reach %s API", provider)
+            return jsonify({'error': f'Could not reach {provider} API. Check your internet connection and try again.'}), 502
         
         return jsonify({
             'key_points': key_points,
+            'provider': provider,
             'model': model,
             'success': True
         })
