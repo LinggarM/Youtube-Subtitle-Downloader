@@ -108,10 +108,10 @@ class AIAPIError(Exception):
         super().__init__(message)
         self.status_code = status_code
 
-
-def get_key_points(transcript, provider, model):
+# Ubah fungsi get_key_points menjadi seperti ini:
+def get_key_points(transcript, provider, model, target_language="Indonesia"):
     """Get key points from a configured AI provider."""
-    content = f"beri poin penting: {transcript}"
+    content = f"Berikan poin-poin penting dari transkrip berikut dalam bahasa {target_language}:\n\n{transcript}"
 
     try:
         if provider == 'groq':
@@ -253,6 +253,7 @@ def get_keypoints():
         transcript = data.get('transcript', '').strip()
         provider = data.get('provider', 'groq')
         model = data.get('model', 'openai/gpt-oss-20b')
+        target_language = data.get('target_language', 'Indonesia') # Tambahkan baris ini
         
         if not transcript:
             return jsonify({'error': 'Transcript is required'}), 400
@@ -270,7 +271,7 @@ def get_keypoints():
             return jsonify({'error': f'{key_name} is not configured. Add a valid API key to the .env file.'}), 503
         
         try:
-            key_points = get_key_points(transcript, provider, model)
+            key_points = get_key_points(transcript, provider, model, target_language)
         except AIAPIError as e:
             app.logger.error("%s API returned %s: %s", provider, e.status_code, e)
             return jsonify({'error': f'{provider} API error ({e.status_code}): {e}'}), 502

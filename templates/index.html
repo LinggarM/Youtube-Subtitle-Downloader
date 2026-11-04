@@ -574,6 +574,17 @@
                                 <option value="gemini-3.1-pro-preview" data-provider="google">Google AI Studio - Gemini 3.1 Pro (Preview)</option>
                             </select>
                         </div>
+                        <div class="model-selection">
+                            <label for="languageSelect">Bahasa Output:</label>
+                            <select id="languageSelect" class="model-select">
+                                <option value="Indonesia">Indonesia</option>
+                                <option value="English">English</option>
+                                <option value="Japanese">Japanese</option>
+                                <option value="Korean">Korean</option>
+                                <option value="Mandarin">Mandarin</option>
+                                <option value="Arabic">Arabic</option>
+                            </select>
+                        </div>
 
                         <div style="text-align: center;">
                             <button class="btn btn-secondary" onclick="generateKeyPoints()" id="generateBtn">
@@ -811,6 +822,7 @@
             const loadingText = document.getElementById('loadingText');
             const generateBtn = document.getElementById('generateBtn');
             const modelSelect = document.getElementById('modelSelect');
+            const languageSelect = document.getElementById('languageSelect'); // Tambahkan ini
             const keyPointsBox = document.getElementById('keyPointsBox');
             const keypointsHeader = document.getElementsByClassName('keypoints-header')[0];
 
@@ -821,6 +833,7 @@
 
             const selectedModel = modelSelect.value;
             const selectedProvider = modelSelect.selectedOptions[0].dataset.provider;
+            const targetLanguage = languageSelect.value; // Tambahkan ini
 
             // Show loading
             loading.style.display = 'block';
@@ -837,7 +850,8 @@
                     body: JSON.stringify({
                         transcript: currentTranscript,
                         provider: selectedProvider,
-                        model: selectedModel
+                        model: selectedModel,
+                        target_language: targetLanguage
                     })
                 })
                 .then(response => response.json())
