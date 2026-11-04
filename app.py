@@ -6,6 +6,7 @@ import re
 import os
 import requests
 import json
+import time
 
 app = Flask(__name__)
 
@@ -108,40 +109,26 @@ class AIAPIError(Exception):
         super().__init__(message)
         self.status_code = status_code
 
-# Ubah fungsi get_key_points menjadi seperti ini:
-def get_key_points(transcript, provider, model, target_language="Indonesia"):
-    """Get key points from a configured AI provider."""
-    content = f"Berikan poin-poin penting dari transkrip berikut dalam bahasa {target_language}:\n\n{transcript}"
-
+def _call_ai_api(provider, model, prompt):
+    """Helper function untuk melakukan request ke AI API (Groq/Google)"""
     try:
         if provider == 'groq':
             response = requests.post(
                 GROQ_API_URL,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {GROQ_API_KEY}"
-                },
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": content}]
-                },
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_API_KEY}"},
+                json={"model": model, "messages": [{"role": "user", "content": prompt}]},
                 timeout=30
             )
         else:
             response = requests.post(
                 f"{GOOGLE_AI_STUDIO_API_URL}/{model}:generateContent",
-                headers={
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": GOOGLE_AI_STUDIO_API_KEY
-                },
-                json={
-                    "contents": [{"parts": [{"text": content}]}]
-                },
+                headers={"Content-Type": "application/json", "x-goog-api-key": GOOGLE_AI_STUDIO_API_KEY},
+                json={"contents": [{"parts": [{"text": prompt}]}]},
                 timeout=(10, 120)
             )
         response.raise_for_status()
-        
         response_data = response.json()
+        
         if provider == 'groq':
             choices = response_data.get('choices') if isinstance(response_data, dict) else None
             message = choices[0].get('message') if isinstance(choices, list) and choices and isinstance(choices[0], dict) else None
@@ -150,14 +137,12 @@ def get_key_points(transcript, provider, model, target_language="Indonesia"):
             candidates = response_data.get('candidates') if isinstance(response_data, dict) else None
             candidate_content = candidates[0].get('content') if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict) else None
             parts = candidate_content.get('parts') if isinstance(candidate_content, dict) else None
-            result = '\n'.join(
-                part['text'] for part in parts
-                if isinstance(part, dict) and isinstance(part.get('text'), str)
-            ) if isinstance(parts, list) else None
+            result = '\n'.join(part['text'] for part in parts if isinstance(part, dict) and isinstance(part.get('text'), str)) if isinstance(parts, list) else None
+            
         if not isinstance(result, str):
             raise AIAPIError(502, f'{provider} returned an unexpected response format.')
         return result
-            
+        
     except requests.exceptions.HTTPError as e:
         response = e.response
         try:
@@ -168,6 +153,35 @@ def get_key_points(transcript, provider, model, target_language="Indonesia"):
             api_error = error_data.get('error') if isinstance(error_data, dict) else None
             error_message = api_error.get('message') if isinstance(api_error, dict) else str(api_error or e)
         raise AIAPIError(response.status_code, error_message) from e
+
+# Ganti fungsi get_key_points dengan versi yang mendukung pilihan chunking:
+def get_key_points(transcript, provider, model, target_language="Indonesia", use_chunking=True):
+    """Get key points dengan opsi chunking universal."""
+    
+    # Jika user memilih chunking DAN transkrip cukup panjang (>6000 karakter)
+    if use_chunking and len(transcript) > 6000:
+        chunk_size = 6000
+        chunks = [transcript[i:i+chunk_size] for i in range(0, len(transcript), chunk_size)]
+        chunk_summaries = []
+        
+        for i, chunk in enumerate(chunks):
+            prompt = f"Bagian {i+1} dari {len(chunks)}. Berikan poin-poin penting dari transkrip berikut dalam bahasa {target_language}:\n\n{chunk}"
+            result = _call_ai_api(provider, model, prompt)
+            chunk_summaries.append(result)
+            time.sleep(0.5) # Jeda agar tidak terkena rate limit
+            
+        # Gabungkan hasil chunk
+        combined_text = "\n\n---\n\n".join(chunk_summaries)
+        final_prompt = (
+            f"Gabungkan dan ringkas semua poin-poin penting berikut menjadi satu ringkasan utuh "
+            f"yang terstruktur, padat, dan tidak berulang, dalam bahasa {target_language}:\n\n{combined_text}"
+        )
+        return _call_ai_api(provider, model, final_prompt)
+    
+    # Jika user TIDAK memilih chunking, atau transkrip pendek, kirim langsung (perilaku asli)
+    else:
+        prompt = f"Berikan poin-poin penting dari transkrip berikut dalam bahasa {target_language}:\n\n{transcript}"
+        return _call_ai_api(provider, model, prompt)
 
 @app.route('/')
 def index():
@@ -253,7 +267,8 @@ def get_keypoints():
         transcript = data.get('transcript', '').strip()
         provider = data.get('provider', 'groq')
         model = data.get('model', 'openai/gpt-oss-20b')
-        target_language = data.get('target_language', 'Indonesia') # Tambahkan baris ini
+        target_language = data.get('target_language', 'Indonesia')
+        use_chunking = data.get('use_chunking', True)  # <-- Tambahkan ini (default True agar aman)
         
         if not transcript:
             return jsonify({'error': 'Transcript is required'}), 400
@@ -271,15 +286,14 @@ def get_keypoints():
             return jsonify({'error': f'{key_name} is not configured. Add a valid API key to the .env file.'}), 503
         
         try:
-            key_points = get_key_points(transcript, provider, model, target_language)
+            # <-- Teruskan parameter use_chunking ke fungsi
+            key_points = get_key_points(transcript, provider, model, target_language, use_chunking)
         except AIAPIError as e:
             app.logger.error("%s API returned %s: %s", provider, e.status_code, e)
             return jsonify({'error': f'{provider} API error ({e.status_code}): {e}'}), 502
         except requests.exceptions.Timeout:
             app.logger.warning("%s API request timed out for model %s", provider, model)
-            return jsonify({
-                'error': f'{provider} API request timed out. Try again or choose a faster model.'
-            }), 504
+            return jsonify({'error': f'{provider} API request timed out. Try again or choose a faster model.'}), 504
         except requests.exceptions.RequestException:
             app.logger.exception("Could not reach %s API", provider)
             return jsonify({'error': f'Could not reach {provider} API. Check your internet connection and try again.'}), 502
