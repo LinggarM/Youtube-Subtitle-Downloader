@@ -625,6 +625,14 @@
         let availableLanguages = [];
         let selectedLanguage = null;
 
+        function updateBrowserUrl(url) {
+            if (url) {
+                const currentUrl = new URL(window.location.href);
+                currentUrl.searchParams.set('url', url);
+                window.history.replaceState({}, '', currentUrl);
+            }
+        }
+
         function checkLanguages() {
             const urlInput = document.getElementById('urlInput');
             const loading = document.getElementById('loading');
@@ -637,6 +645,8 @@
                 showError('Please enter a YouTube URL');
                 return;
             }
+
+            updateBrowserUrl(url);
 
             // Show loading
             loading.style.display = 'block';
@@ -733,6 +743,8 @@
                 showError('Please enter a YouTube URL');
                 return;
             }
+
+            updateBrowserUrl(url);
 
             if (!selectedLanguage) {
                 showError('Please select a language first');
@@ -1038,6 +1050,17 @@
         document.getElementById('urlInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 checkLanguages();
+            }
+        });
+
+        // Auto-submit jika ada parameter URL (misal: /?url=https://youtube.com/watch?v=...)
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlParam = urlParams.get('url');
+            
+            if (urlParam) {
+                document.getElementById('urlInput').value = urlParam;
+                checkLanguages(); // Otomatis memicu proses pengecekan dan ekstraksi
             }
         });
     </script>
