@@ -1,6 +1,6 @@
-# YouTube Subtitle Extractor
+# YouTube KeyPoints Extractor
 
-A full-stack Flask application that extracts subtitles from YouTube videos and generates key points using AI models.
+A full-stack Flask application that extracts subtitles from YouTube videos and generates structured, AI-powered key points and summaries.
 
 ## Preview
 
@@ -8,23 +8,22 @@ A full-stack Flask application that extracts subtitles from YouTube videos and g
 
 ## Features
 
-- 🎬 Extract subtitles from any YouTube video with available transcripts
-- 🌐 **Language Selection**: Choose from available subtitle languages with detailed information
-- 🔍 **Language Detection**: Automatically detect all available subtitle languages
-- 🏷️ **Language Info**: Shows auto-generated vs manual subtitles and translatability
-- 🧠 **AI-Powered Key Points**: Generate key insights using Groq or Google AI Studio
-- 🎨 Modern, responsive web interface with glassmorphism design
-- 📋 Copy transcript and key points to clipboard
-- 🔄 Real-time loading indicators with smooth animations
-- 📱 Fully responsive design for all devices
-- 🚀 RESTful API endpoints
+- 🎬 **Transcript Extraction**: Extract subtitles from any YouTube video with available transcripts.
+- 🔗 **Shareable Links**: Auto-fills and processes videos via URL query parameters (e.g., `?url=https://youtu.be/...`).
+- 🌐 **Language Selection**: Choose from available subtitle languages with detailed metadata.
+- 🔍 **Language Detection**: Automatically detect all available subtitle languages (manual vs. auto-generated).
+- 🧠 **AI-Powered Summarization**: Generate key insights using Groq or Google AI Studio models.
+- ✂️ **Smart Chunking**: Automatically breaks down long transcripts to bypass AI token limits and ensure comprehensive, high-quality summaries.
+- 🎨 **Modern UI**: Responsive web interface with glassmorphism design and smooth animations.
+- 📋 **One-Click Copy**: Easily copy transcripts and generated key points to the clipboard.
+- 🚀 **RESTful API**: Clean and well-documented API endpoints for easy integration.
 
 ## AI Models Available
 
-- **GPT-OSS 20B**: Faster processing for quick key point generation
-- **GPT-OSS 120B**: More capable analysis for detailed insights
-- **Gemini 3.8 Flash**: Fast responses using Google AI Studio
-- **Gemini 3.1 Pro Preview**: More capable analysis using Google AI Studio
+- **Groq - GPT-OSS 20B**: Faster processing for quick key point generation.
+- **Groq - GPT-OSS 120B**: More capable analysis for detailed, complex insights.
+- **Google AI Studio - Gemini 3.8 Flash**: Fast, efficient responses.
+- **Google AI Studio - Gemini 3.1 Pro Preview**: Advanced reasoning for highly detailed summaries.
 
 ## Setup Instructions
 
@@ -47,14 +46,14 @@ GROQ_API_KEY=your_groq_api_key_here
 GOOGLE_AI_STUDIO_API_KEY=your_google_ai_studio_api_key_here
 ```
 
-Get your Groq API key from: https://console.groq.com/
-Get your Google AI Studio API key from: https://aistudio.google.com/apikey
+- Get your Groq API key from: https://console.groq.com/
+- Get your Google AI Studio API key from: https://aistudio.google.com/apikey
 
 ### 3. Project Structure
 
-Create the following directory structure:
-```
-youtube-subtitle-extractor/
+Ensure the following directory structure:
+```text
+youtube-keypoints-extractor/
 ├── app.py
 ├── requirements.txt
 ├── .env
@@ -74,13 +73,15 @@ The application will be available at: `http://localhost:5000`
 ## Usage
 
 ### Web Interface
-1. Open your browser and go to `http://localhost:5000`
-2. Enter a YouTube URL in the input field
-3. Click "Check Languages" to see available subtitle languages
-4. Select your preferred language from the grid of options
-5. Click "Extract Subtitles" to get the transcript
-6. Choose an AI model and click "Generate Key Points" for AI-powered insights
-7. Copy transcript or key points to clipboard as needed
+1. Open your browser and go to `http://localhost:5000`.
+2. Enter a YouTube URL in the input field *(or append `?url=YOUTUBE_LINK` to the address bar to auto-load)*.
+3. Click **"Check Languages"** to see available subtitle languages.
+4. Select your preferred language from the interactive grid.
+5. Click **"Extract Subtitles"** to retrieve the transcript.
+6. Choose an AI model, target output language, and toggle **Chunking** (recommended for long videos).
+7. Click **"Generate Key Points"** and copy the results as needed.
+
+💡 *Pro Tip:* The browser URL automatically updates with the `?url=` parameter upon extraction, making it easy to bookmark or share your current session.
 
 ### API Endpoints
 
@@ -91,22 +92,6 @@ Request body:
 ```json
 {
     "url": "https://www.youtube.com/watch?v=VIDEO_ID"
-}
-```
-
-Response:
-```json
-{
-    "video_id": "VIDEO_ID",
-    "languages": [
-        {
-            "language_code": "en",
-            "language": "English",
-            "is_generated": true,
-            "is_translatable": true
-        }
-    ],
-    "success": true
 }
 ```
 
@@ -121,16 +106,6 @@ Request body:
 }
 ```
 
-Response:
-```json
-{
-    "video_id": "VIDEO_ID",
-    "transcript": "Full transcript text...",
-    "language_code": "en",
-    "success": true
-}
-```
-
 #### Generate Key Points
 **POST** `/api/keypoints`
 
@@ -139,108 +114,56 @@ Request body:
 {
     "transcript": "Full transcript text...",
     "provider": "google",
-    "model": "gemini-3.8-flash"
-}
-```
-
-Supported providers are `groq` and `google`. Select a model belonging to that provider. The `provider` field is optional for existing clients and defaults to `groq`.
-
-Response:
-```json
-{
-    "key_points": "Generated key points...",
-    "provider": "google",
     "model": "gemini-3.8-flash",
-    "success": true
+    "target_language": "Indonesia",
+    "use_chunking": true
 }
 ```
+*Note: `target_language` defaults to "Indonesia". `use_chunking` defaults to `true` and is highly recommended for transcripts longer than 6000 characters.*
 
 #### Health Check
 **GET** `/api/health`
-
-Response:
-```json
-{
-    "status": "healthy"
-}
-```
 
 ## Supported URL Formats
 
 - `https://www.youtube.com/watch?v=VIDEO_ID`
 - `https://youtu.be/VIDEO_ID`
 - `https://www.youtube.com/embed/VIDEO_ID`
-- `https://www.youtube.com/watch?v=VIDEO_ID&other_params`
+- `https://www.youtube.com/shorts/VIDEO_ID`
 
-## Language Selection Features
+## AI-Powered Key Points & Chunking
 
-- **Visual Language Grid**: Interactive grid showing all available languages
-- **Language Metadata**: 
-  - Auto-generated vs manual subtitles
-  - Translatable indicators
-  - Language codes and full names
-- **Smart Selection**: Radio button selection with visual feedback
-- **Fallback Support**: Automatic fallback to default language if selected language fails
-
-## AI-Powered Key Points
-
-The application integrates with Groq and Google AI Studio to generate intelligent key points:
-
-- **Multiple Providers and Models**: Choose Groq GPT-OSS 20B/120B or Google Gemini 3.8 Flash/3.1 Pro Preview
-- **Formatted Output**: AI-generated points are formatted with proper HTML rendering
-- **Indonesian Support**: Prompts in Indonesian for localized key point generation
-- **Error Handling**: Robust error handling for API failures
+The application intelligently handles long videos to prevent AI token limit errors:
+1. **Detection**: If the transcript exceeds 6000 characters and chunking is enabled, it splits the text into manageable blocks.
+2. **Parallel/Sequential Summarization**: Each block is summarized individually with a slight delay to respect API rate limits.
+3. **Final Synthesis**: A final AI prompt merges all chunk summaries into one cohesive, structured, and non-repetitive output.
 
 ## UI/UX Features
 
-- **Glassmorphism Design**: Modern glass-like aesthetic with backdrop blur
-- **Smooth Animations**: Loading spinners, hover effects, and transitions
-- **Interactive Elements**: Copy buttons with success/error notifications
-- **SweetAlert2 Integration**: Beautiful toast notifications for user feedback
-- **Responsive Layout**: Works seamlessly on desktop, tablet, and mobile
-- **Color-Coded Sections**: Different color schemes for transcript vs key points
+- **Glassmorphism Design**: Modern aesthetic with backdrop blur and gradient accents.
+- **Interactive Language Grid**: Visual badges indicating "Auto-generated" or "Translatable" subtitles.
+- **Markdown Rendering**: AI outputs are beautifully rendered into HTML (supporting lists, bold text, and tables) using `marked.js`.
+- **SweetAlert2 Integration**: Elegant toast notifications for success and error states.
 
 ## Error Handling
 
 Comprehensive error handling for:
-- Invalid YouTube URLs
-- Videos without available transcripts
-- Selected language not available
-- Private or restricted videos
-- Network errors
-- Groq API failures
-- Malformed requests
-- Invalid AI model selection
-
-## Requirements
-
-### Python Dependencies
-```
-Flask>=2.0.0
-youtube-transcript-api>=0.5.0
-python-dotenv>=0.19.0
-requests>=2.28.0
-```
-
-### External Services
-- **Groq API** and/or **Google AI Studio API**: For AI-powered key point generation
-- **YouTube**: For video transcript extraction
+- Invalid or unsupported YouTube URLs.
+- Videos without available transcripts/subtitles.
+- Private, deleted, or age-restricted videos.
+- Missing or invalid API keys.
+- AI Provider rate limits or timeouts.
 
 ## Notes
 
-- Only works with videos that have available transcripts/subtitles
-- Supports both manual and auto-generated subtitles
-- AI key point generation requires the API key for the selected provider (`GROQ_API_KEY` or `GOOGLE_AI_STUDIO_API_KEY`)
-- Indonesian language prompts are used for key point generation
-- The transcript is returned as plain text without timestamps
-- Key points are formatted with HTML for better presentation
-- All data is processed in-memory (no persistent storage)
-- Successful subtitle extractions are recorded in `submissions.log` as JSON Lines, including the submitted URL, video title, video ID, and timestamp
+- Successful subtitle extractions are recorded in `submissions.log` as JSON Lines (URL, video title, video ID, and UTC timestamp).
+- The transcript is returned as plain text without timestamps for cleaner AI processing.
+- All data is processed in-memory; no video or transcript data is permanently stored on the server.
 
 ## Contributing
 
-Feel free to submit issues and enhancement requests!
+Feel free to submit issues, fork the repository, and create pull requests for enhancements!
 
 ## License
 
-This project is open source and available under the MIT License.
+This project is open source and available under the [MIT License](LICENSE).
