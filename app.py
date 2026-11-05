@@ -268,7 +268,7 @@ def get_keypoints():
         provider = data.get('provider', 'groq')
         model = data.get('model', 'openai/gpt-oss-20b')
         target_language = data.get('target_language', 'Indonesia')
-        use_chunking = data.get('use_chunking', True)  # <-- Tambahkan ini (default True agar aman)
+        use_chunking = data.get('use_chunking', False)
         
         if not transcript:
             return jsonify({'error': 'Transcript is required'}), 400

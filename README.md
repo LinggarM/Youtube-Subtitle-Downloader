@@ -88,17 +88,33 @@ The application will be available at: `http://localhost:5000`
 #### Get Available Languages
 **POST** `/api/languages`
 
-Request body:
+**Request body:**
 ```json
 {
     "url": "https://www.youtube.com/watch?v=VIDEO_ID"
 }
 ```
 
+**Response:**
+```json
+{
+    "video_id": "VIDEO_ID",
+    "languages": [
+        {
+            "language_code": "en",
+            "language": "English",
+            "is_generated": true,
+            "is_translatable": true
+        }
+    ],
+    "success": true
+}
+```
+
 #### Extract Transcript
 **POST** `/api/transcript`
 
-Request body:
+**Request body:**
 ```json
 {
     "url": "https://www.youtube.com/watch?v=VIDEO_ID",
@@ -106,10 +122,21 @@ Request body:
 }
 ```
 
+**Response:**
+```json
+{
+    "video_id": "VIDEO_ID",
+    "video_title": "Actual Video Title Here",
+    "transcript": "Full transcript text...",
+    "language_code": "en",
+    "success": true
+}
+```
+
 #### Generate Key Points
 **POST** `/api/keypoints`
 
-Request body:
+**Request body:**
 ```json
 {
     "transcript": "Full transcript text...",
@@ -121,8 +148,25 @@ Request body:
 ```
 *Note: `target_language` defaults to "Indonesia". `use_chunking` defaults to `true` and is highly recommended for transcripts longer than 6000 characters.*
 
+**Response:**
+```json
+{
+    "key_points": "Generated key points in markdown format...",
+    "provider": "google",
+    "model": "gemini-3.8-flash",
+    "success": true
+}
+```
+
 #### Health Check
 **GET** `/api/health`
+
+**Response:**
+```json
+{
+    "status": "healthy"
+}
+```
 
 ## Supported URL Formats
 
