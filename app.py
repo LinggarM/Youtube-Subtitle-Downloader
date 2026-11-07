@@ -6,9 +6,107 @@ import re
 import os
 import requests
 import json
+import sqlite3
 import time
+from contextlib import contextmanager
 
 app = Flask(__name__)
+HISTORY_DATABASE = os.path.join(app.instance_path, 'history.sqlite3')
+HISTORY_FIELDS = ('id', 'title', 'videoId', 'url', 'language', 'transcript', 'keyPoints', 'createdAt', 'updatedAt')
+
+
+def get_history_connection():
+    """Open the persistent local history database and ensure its schema exists."""
+    os.makedirs(app.instance_path, exist_ok=True)
+    connection = sqlite3.connect(HISTORY_DATABASE)
+    connection.row_factory = sqlite3.Row
+    connection.execute('''
+        CREATE TABLE IF NOT EXISTS history (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            video_id TEXT NOT NULL,
+            url TEXT NOT NULL,
+            language TEXT NOT NULL,
+            transcript TEXT NOT NULL,
+            key_points TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    ''')
+    connection.execute('''
+        CREATE TABLE IF NOT EXISTS history_imports (
+            token TEXT PRIMARY KEY,
+            imported_at TEXT NOT NULL
+        )
+    ''')
+    return connection
+
+
+@contextmanager
+def history_connection():
+    connection = get_history_connection()
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
+
+
+def validate_history_entry(entry):
+    """Validate a history record received from the browser."""
+    if not isinstance(entry, dict):
+        return None
+    if any(not isinstance(entry.get(field, ''), str) for field in HISTORY_FIELDS):
+        return None
+    if not entry.get('id', '').strip() or not entry.get('transcript', '').strip():
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        'id': entry['id'].strip(),
+        'title': entry.get('title', '').strip() or 'Untitled video',
+        'video_id': entry.get('videoId', '').strip(),
+        'url': entry.get('url', '').strip(),
+        'language': entry.get('language', '').strip(),
+        'transcript': entry['transcript'],
+        'key_points': entry.get('keyPoints', ''),
+        'created_at': entry.get('createdAt', '').strip() or now,
+        'updated_at': entry.get('updatedAt', '').strip() or now
+    }
+
+
+def insert_history_entry(connection, entry, ignore_existing=False):
+    conflict_clause = 'DO NOTHING' if ignore_existing else '''
+        DO UPDATE SET
+            title = excluded.title,
+            video_id = excluded.video_id,
+            url = excluded.url,
+            language = excluded.language,
+            transcript = excluded.transcript,
+            key_points = excluded.key_points,
+            updated_at = excluded.updated_at
+    '''
+    connection.execute(f'''
+        INSERT INTO history (
+            id, title, video_id, url, language, transcript, key_points, created_at, updated_at
+        ) VALUES (
+            :id, :title, :video_id, :url, :language, :transcript, :key_points, :created_at, :updated_at
+        )
+        ON CONFLICT(id) {conflict_clause}
+    ''', entry)
+
+
+def serialize_history_entry(row):
+    return {
+        'id': row['id'],
+        'title': row['title'],
+        'videoId': row['video_id'],
+        'url': row['url'],
+        'language': row['language'],
+        'transcript': row['transcript'],
+        'keyPoints': row['key_points'],
+        'createdAt': row['created_at'],
+        'updatedAt': row['updated_at']
+    }
 
 # AI API configuration
 load_dotenv()
@@ -188,6 +286,11 @@ def index():
     """Render the main page"""
     return render_template('index.html')
 
+@app.route('/history')
+def history():
+    """Render the browser-local transcript history page"""
+    return render_template('history.html')
+
 @app.route('/api/languages', methods=['POST'])
 def get_languages():
     """API endpoint to get available subtitle languages"""
@@ -216,6 +319,160 @@ def get_languages():
     
     except Exception as e:
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
+
+@app.route('/api/history', methods=['GET', 'POST'])
+def manage_history():
+    """List or save history records in SQLite."""
+    if request.method == 'GET':
+        try:
+            page = max(1, int(request.args.get('page', '1')))
+            per_page = int(request.args.get('per_page', '10'))
+        except ValueError:
+            return jsonify({'error': 'Page and page size must be integers.'}), 400
+        if per_page not in (10, 20, 50):
+            return jsonify({'error': 'Page size must be 10, 20, or 50.'}), 400
+
+        search = request.args.get('q', '').strip()
+        language = request.args.get('language', '').strip()
+        status = request.args.get('status', 'all')
+        date_from = request.args.get('date_from', '').strip()
+        date_to = request.args.get('date_to', '').strip()
+        if len(search) > 200 or len(language) > 100:
+            return jsonify({'error': 'Search filters are too long.'}), 400
+        if status not in ('all', 'with_keypoints', 'transcript_only'):
+            return jsonify({'error': 'Invalid key points filter.'}), 400
+        try:
+            if date_from:
+                datetime.strptime(date_from, '%Y-%m-%d')
+            if date_to:
+                datetime.strptime(date_to, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'error': 'Dates must use YYYY-MM-DD format.'}), 400
+        if date_from and date_to and date_from > date_to:
+            return jsonify({'error': 'Start date must not be later than end date.'}), 400
+
+        conditions = []
+        parameters = []
+        if search:
+            escaped_search = search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            pattern = f'%{escaped_search}%'
+            conditions.append(
+                "(title LIKE ? ESCAPE '\\' OR video_id LIKE ? ESCAPE '\\' "
+                "OR language LIKE ? ESCAPE '\\' OR transcript LIKE ? ESCAPE '\\' "
+                "OR key_points LIKE ? ESCAPE '\\')"
+            )
+            parameters.extend([pattern] * 5)
+        if language:
+            escaped_language = language.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            conditions.append("language LIKE ? ESCAPE '\\'")
+            parameters.append(f'%{escaped_language}%')
+        if status == 'with_keypoints':
+            conditions.append("length(trim(key_points)) > 0")
+        elif status == 'transcript_only':
+            conditions.append("length(trim(key_points)) = 0")
+        if date_from:
+            conditions.append("substr(created_at, 1, 10) >= ?")
+            parameters.append(date_from)
+        if date_to:
+            conditions.append("substr(created_at, 1, 10) <= ?")
+            parameters.append(date_to)
+        where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ''
+        offset = (page - 1) * per_page
+
+        try:
+            with history_connection() as connection:
+                total = connection.execute(
+                    f'SELECT COUNT(*) FROM history{where_clause}', parameters
+                ).fetchone()[0]
+                page_count = (total + per_page - 1) // per_page
+                page = min(page, max(page_count, 1))
+                rows = connection.execute(
+                    f'SELECT * FROM history{where_clause} '
+                    'ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?',
+                    [*parameters, per_page, (page - 1) * per_page]
+                ).fetchall()
+            return jsonify({
+                'history': [serialize_history_entry(row) for row in rows],
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': total,
+                    'pages': page_count
+                },
+                'success': True
+            })
+        except (sqlite3.Error, OSError):
+            app.logger.exception("Could not read local history database")
+            return jsonify({'error': 'Could not read history from the SQLite database.'}), 500
+
+    data = request.get_json(silent=True)
+    entry = validate_history_entry(data)
+    if entry is None:
+        return jsonify({'error': 'A valid history record with an ID and transcript is required.'}), 400
+    try:
+        with history_connection() as connection:
+            insert_history_entry(connection, entry)
+        return jsonify({'success': True}), 201
+    except (sqlite3.Error, OSError):
+        app.logger.exception("Could not save local history")
+        return jsonify({'error': 'Could not save history to the SQLite database.'}), 500
+
+
+@app.route('/api/history/import', methods=['POST'])
+def import_history():
+    """Import a browser's legacy history once, preserving its local backup."""
+    data = request.get_json(silent=True)
+    token = data.get('token') if isinstance(data, dict) else None
+    entries = data.get('history') if isinstance(data, dict) else None
+    if not isinstance(token, str) or not token.strip() or not isinstance(entries, list):
+        return jsonify({'error': 'A migration token and history list are required.'}), 400
+    if len(entries) > 5000:
+        return jsonify({'error': 'The history import is too large.'}), 413
+
+    validated_entries = [validate_history_entry(entry) for entry in entries]
+    if any(entry is None for entry in validated_entries):
+        return jsonify({'error': 'One or more legacy history records have an invalid format.'}), 400
+
+    try:
+        with history_connection() as connection:
+            cursor = connection.execute(
+                'INSERT OR IGNORE INTO history_imports (token, imported_at) VALUES (?, ?)',
+                (token.strip(), datetime.now(timezone.utc).isoformat())
+            )
+            if cursor.rowcount:
+                for entry in validated_entries:
+                    insert_history_entry(connection, entry, ignore_existing=True)
+        return jsonify({'success': True}), 200
+    except (sqlite3.Error, OSError):
+        app.logger.exception("Could not import browser history")
+        return jsonify({'error': 'Could not import browser history into SQLite.'}), 500
+
+
+@app.route('/api/history/<entry_id>', methods=['PATCH', 'DELETE'])
+def update_or_delete_history(entry_id):
+    """Update key points or delete a history record."""
+    try:
+        with history_connection() as connection:
+            if request.method == 'DELETE':
+                cursor = connection.execute('DELETE FROM history WHERE id = ?', (entry_id,))
+                if cursor.rowcount == 0:
+                    return jsonify({'error': 'History entry not found.'}), 404
+                return jsonify({'success': True})
+
+            data = request.get_json(silent=True)
+            key_points = data.get('keyPoints') if isinstance(data, dict) else None
+            if not isinstance(key_points, str):
+                return jsonify({'error': 'Key points must be a string.'}), 400
+            cursor = connection.execute(
+                'UPDATE history SET key_points = ?, updated_at = ? WHERE id = ?',
+                (key_points, datetime.now(timezone.utc).isoformat(), entry_id)
+            )
+            if cursor.rowcount == 0:
+                return jsonify({'error': 'History entry not found.'}), 404
+        return jsonify({'success': True})
+    except (sqlite3.Error, OSError):
+        app.logger.exception("Could not update local history")
+        return jsonify({'error': 'Could not update the SQLite history database.'}), 500
 
 @app.route('/api/transcript', methods=['POST'])
 def get_transcript():

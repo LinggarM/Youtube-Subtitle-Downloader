@@ -33,6 +33,31 @@
             backdrop-filter: blur(10px);
         }
 
+        .top-nav {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 18px;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 10px;
+            color: #5b62bd;
+            background: #f5f6ff;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            background: #eaebff;
+            transform: translateY(-1px);
+        }
+
         h1 {
             text-align: center;
             color: #333;
@@ -534,6 +559,9 @@
 
 <body>
     <div class="container">
+        <nav class="top-nav" aria-label="Navigasi utama">
+            <a class="nav-link" href="/history">🕘 Riwayat Lokal</a>
+        </nav>
         <h1>🎬 YouTube KeyPoints Extractor</h1>
 
         <div class="input-section">
@@ -634,6 +662,8 @@
         let currentVideoTitle = '';
         let currentVideoId = '';
         let currentLanguage = '';
+        let currentHistoryId = '';
+        let currentHistoryCreatedAt = '';
         let currentTranscript = '';
         let currentKeyPoints = '';
         let availableLanguages = [];
@@ -815,6 +845,9 @@
                     );
 
                     showSuccess('Subtitles extracted successfully!');
+                    if (!await saveCurrentHistory()) {
+                        showError('Transcript extracted, but could not save it to SQLite history. Check that the server can write to its database.');
+                    }
                 } else {
                     showError(data.error || 'An error occurred');
                 }
@@ -835,6 +868,8 @@
             currentTranscript = transcript;
             currentVideoId = videoId;
             currentLanguage = `${language.language} (${language.language_code})`;
+            currentHistoryId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            currentHistoryCreatedAt = new Date().toISOString();
             currentKeyPoints = '';
             transcriptBox.textContent = transcript;
             videoInfo.innerHTML = `
@@ -850,6 +885,52 @@
             keypointsHeader.style.display = 'none';
 
             resultSection.style.display = 'block';
+        }
+
+        async function saveCurrentHistory() {
+            try {
+                const response = await fetch('/api/history', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id: currentHistoryId,
+                        title: currentVideoTitle || 'Untitled video',
+                        videoId: currentVideoId,
+                        url: document.getElementById('urlInput').value.trim(),
+                        language: currentLanguage,
+                        transcript: currentTranscript,
+                        keyPoints: currentKeyPoints,
+                        createdAt: currentHistoryCreatedAt,
+                        updatedAt: new Date().toISOString()
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Could not save history.');
+                }
+                return true;
+            } catch (error) {
+                console.error('Could not save SQLite history:', error);
+                return false;
+            }
+        }
+
+        async function updateCurrentHistory() {
+            try {
+                const response = await fetch(`/api/history/${encodeURIComponent(currentHistoryId)}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({keyPoints: currentKeyPoints})
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Could not update history.');
+                }
+                return true;
+            } catch (error) {
+                console.error('Could not update SQLite history:', error);
+                return false;
+            }
         }
 
         function generateKeyPoints() {
@@ -893,7 +974,7 @@
                     })
                 })
                 .then(response => response.json())
-                .then(data => {
+                .then(async data => {
                     loading.style.display = 'none';
                     generateBtn.disabled = false;
 
@@ -904,6 +985,9 @@
                         keyPointsBox.style.display = 'block';
                         keypointsHeader.style.display = 'flex';
                         showSuccessKeyPoints('Key points generated successfully!');
+                        if (!await updateCurrentHistory()) {
+                            showErrorKeyPoints('Key points generated, but could not update SQLite history. Check that the server can write to its database.');
+                        }
                     } else {
                         showErrorKeyPoints(data.error || 'Could not generate key points');
                     }

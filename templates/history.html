@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riwayat Lokal - YouTube KeyPoints Extractor</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            padding: 28px 20px;
+            color: #252943;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .page {
+            max-width: 1080px;
+            min-height: calc(100vh - 56px);
+            margin: 0 auto;
+            padding: 34px;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.97);
+            box-shadow: 0 24px 60px rgba(34, 30, 78, 0.2);
+        }
+
+        .topbar,
+        .history-toolbar,
+        .entry-topline,
+        .detail-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .topbar {
+            margin-bottom: 36px;
+        }
+
+        .brand {
+            color: #5e63c8;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .nav-link,
+        .button {
+            display: inline-flex;
+            min-height: 42px;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border: 0;
+            border-radius: 11px;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 650;
+            text-decoration: none;
+            cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+
+        .nav-link {
+            color: #5b62bd;
+            background: #f0f1ff;
+        }
+
+        .button:hover,
+        .nav-link:hover {
+            transform: translateY(-1px);
+        }
+
+        .button-primary {
+            color: white;
+            background: linear-gradient(120deg, #667eea, #764ba2);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.22);
+        }
+
+        .button-danger {
+            color: #b94152;
+            background: #fff0f1;
+        }
+
+        .button-muted {
+            color: #535a74;
+            background: #f0f2f7;
+        }
+
+        .eyebrow {
+            margin-bottom: 9px;
+            color: #7478c9;
+            font-size: 12px;
+            font-weight: 750;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            color: #292c47;
+            font-size: clamp(30px, 5vw, 42px);
+            line-height: 1.15;
+        }
+
+        .intro {
+            max-width: 650px;
+            color: #737991;
+            font-size: 15px;
+            line-height: 1.65;
+        }
+
+        .history-toolbar {
+            margin: 28px 0 20px;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: minmax(210px, 1fr) repeat(4, minmax(130px, 0.55fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .filter-control {
+            width: 100%;
+            min-height: 46px;
+            padding: 10px 12px;
+            border: 1px solid #e4e6f0;
+            border-radius: 11px;
+            outline: none;
+            background: #fbfbfe;
+            color: #535a74;
+            font: inherit;
+            font-size: 13px;
+        }
+
+        .filter-control:focus {
+            border-color: #8589e8;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-wrap {
+            position: relative;
+            flex: 1;
+        }
+
+        .search-icon {
+            position: absolute;
+            top: 50%;
+            left: 16px;
+            color: #8b90a6;
+            transform: translateY(-50%);
+        }
+
+        .search-input {
+            width: 100%;
+            min-height: 52px;
+            padding: 13px 16px 13px 46px;
+            border: 1px solid #e4e6f0;
+            border-radius: 14px;
+            outline: none;
+            background: #fbfbfe;
+            color: #292c47;
+            font: inherit;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .search-input:focus {
+            border-color: #8589e8;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+        }
+
+        .result-count {
+            flex: 0 0 auto;
+            color: #777d95;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .entry-list {
+            display: grid;
+            gap: 14px;
+        }
+
+        .entry-card {
+            padding: 21px 22px;
+            border: 1px solid #e9eaf2;
+            border-radius: 17px;
+            background: linear-gradient(135deg, #fff 0%, #fbfbff 100%);
+            transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .entry-card:hover {
+            transform: translateY(-2px);
+            border-color: #d7d9f7;
+            box-shadow: 0 12px 26px rgba(45, 50, 105, 0.08);
+        }
+
+        .entry-topline {
+            align-items: flex-start;
+        }
+
+        .entry-heading {
+            min-width: 0;
+        }
+
+        .entry-title {
+            overflow-wrap: anywhere;
+            color: #30334f;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .entry-title-button {
+            border: 0;
+            padding: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .entry-title-button:hover {
+            color: #6269c8;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+
+        .entry-date {
+            flex: 0 0 auto;
+            color: #858aa0;
+            font-size: 12px;
+        }
+
+        .entry-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0;
+        }
+
+        .meta-chip {
+            padding: 5px 9px;
+            border-radius: 20px;
+            color: #656b85;
+            background: #f0f1f8;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .entry-preview {
+            display: -webkit-box;
+            overflow: hidden;
+            color: #777d91;
+            font-size: 14px;
+            line-height: 1.55;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+        }
+
+        .entry-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 9px;
+            margin-top: 16px;
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .pagination-info {
+            min-width: 120px;
+            color: #777d95;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .page-size {
+            min-height: 42px;
+            padding: 8px 10px;
+            border: 1px solid #e4e6f0;
+            border-radius: 10px;
+            background: #fff;
+            color: #535a74;
+            font: inherit;
+            font-size: 13px;
+        }
+
+        .button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .empty-state,
+        .error-state {
+            padding: 54px 24px;
+            border: 1px dashed #dfe1ed;
+            border-radius: 18px;
+            text-align: center;
+            background: #fbfbfe;
+        }
+
+        .empty-icon {
+            margin-bottom: 14px;
+            font-size: 38px;
+        }
+
+        .empty-state h2,
+        .error-state h2 {
+            margin-bottom: 8px;
+            color: #383b57;
+            font-size: 20px;
+        }
+
+        .empty-state p,
+        .error-state p {
+            color: #7b8095;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .error-state {
+            border-color: #ffd7dc;
+            background: #fff8f8;
+        }
+
+        .error-state h2 {
+            color: #a63c4a;
+        }
+
+        .detail-panel {
+            margin-top: 24px;
+        }
+
+        .detail-header {
+            align-items: flex-start;
+            margin-bottom: 22px;
+        }
+
+        .detail-title {
+            margin-top: 10px;
+            overflow-wrap: anywhere;
+            color: #292c47;
+            font-size: 27px;
+            line-height: 1.25;
+        }
+
+        .detail-meta {
+            margin-top: 11px;
+            color: #777d91;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .detail-content {
+            display: grid;
+            gap: 18px;
+        }
+
+        .content-section {
+            overflow: hidden;
+            border: 1px solid #e8eaf2;
+            border-radius: 16px;
+            background: #fff;
+        }
+
+        .content-section h2 {
+            padding: 15px 18px;
+            border-bottom: 1px solid #eceef5;
+            color: #454967;
+            background: #f8f8fc;
+            font-size: 15px;
+        }
+
+        .content-text {
+            max-height: 460px;
+            overflow: auto;
+            padding: 20px;
+            color: #41455e;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.75;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .markdown-content {
+            white-space: normal;
+        }
+
+        .markdown-content > :first-child {
+            margin-top: 0;
+        }
+
+        .markdown-content > :last-child {
+            margin-bottom: 0;
+        }
+
+        .markdown-content p,
+        .markdown-content ul,
+        .markdown-content ol,
+        .markdown-content blockquote,
+        .markdown-content pre,
+        .markdown-content table {
+            margin: 0 0 14px;
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+            padding-left: 24px;
+        }
+
+        .markdown-content li + li {
+            margin-top: 5px;
+        }
+
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3,
+        .markdown-content h4 {
+            margin: 20px 0 10px;
+            color: #363a57;
+            font-size: 1.15em;
+        }
+
+        .markdown-content blockquote {
+            padding: 10px 14px;
+            border-left: 3px solid #9295e8;
+            border-radius: 0 8px 8px 0;
+            background: #f6f6ff;
+            color: #666d86;
+        }
+
+        .markdown-content code {
+            padding: 2px 5px;
+            border-radius: 5px;
+            background: #f0f1f8;
+            font-family: Consolas, monospace;
+            font-size: 0.92em;
+        }
+
+        .markdown-content pre {
+            overflow: auto;
+            padding: 14px;
+            border-radius: 10px;
+            background: #f5f6fa;
+        }
+
+        .markdown-content pre code {
+            padding: 0;
+            background: transparent;
+        }
+
+        .markdown-content table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .markdown-content th,
+        .markdown-content td {
+            padding: 9px 11px;
+            border: 1px solid #e4e6f0;
+            text-align: left;
+        }
+
+        .markdown-content th {
+            background: #f5f6fc;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 12px;
+            }
+
+            .page {
+                min-height: calc(100vh - 24px);
+                padding: 22px 17px;
+                border-radius: 18px;
+            }
+
+            .topbar {
+                margin-bottom: 28px;
+            }
+
+            .filter-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .result-count {
+                text-align: right;
+            }
+
+            .pagination {
+                flex-wrap: wrap;
+            }
+
+            .entry-topline,
+            .detail-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .entry-date {
+                order: -1;
+            }
+
+            .detail-title {
+                font-size: 23px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="page">
+        <nav class="topbar" aria-label="Navigasi utama">
+            <span class="brand">🎬 YOUTUBE KEYPOINTS</span>
+            <a class="nav-link" href="/">← Kembali ke Extractor</a>
+        </nav>
+
+        <section id="listView">
+            <p class="eyebrow">Database SQLite aplikasi</p>
+            <h1>Riwayat Lokal</h1>
+            <p class="intro">Temukan kembali transkrip dan key points yang pernah dibuat. Riwayat tersimpan di database aplikasi agar tetap tersedia setelah browser ditutup.</p>
+
+            <div class="history-toolbar">
+                <label class="search-wrap">
+                    <span class="search-icon" aria-hidden="true">⌕</span>
+                    <input class="search-input" id="searchInput" type="search"
+                        placeholder="Cari judul, video, bahasa, transkrip, atau key points..." autocomplete="off">
+                </label>
+                <span class="result-count" id="resultCount" aria-live="polite"></span>
+            </div>
+
+            <div class="filter-grid" aria-label="Filter riwayat">
+                <input class="filter-control" id="languageFilter" type="search" aria-label="Filter bahasa" placeholder="Filter bahasa...">
+                <select class="filter-control" id="statusFilter" aria-label="Filter status key points">
+                    <option value="all">Semua status</option>
+                    <option value="with_keypoints">Key points tersedia</option>
+                    <option value="transcript_only">Transkrip saja</option>
+                </select>
+                <label>
+                    <span class="eyebrow">Dari tanggal</span>
+                    <input class="filter-control" id="dateFrom" type="date" aria-label="Dari tanggal">
+                </label>
+                <label>
+                    <span class="eyebrow">Sampai tanggal</span>
+                    <input class="filter-control" id="dateTo" type="date" aria-label="Sampai tanggal">
+                </label>
+                <select class="filter-control" id="pageSize" aria-label="Jumlah riwayat per halaman">
+                    <option value="10">10 per halaman</option>
+                    <option value="20">20 per halaman</option>
+                    <option value="50">50 per halaman</option>
+                </select>
+            </div>
+
+            <div class="entry-list" id="entryList"></div>
+            <nav class="pagination" id="pagination" aria-label="Halaman riwayat" hidden>
+                <button class="button button-muted" id="previousPage" type="button">← Sebelumnya</button>
+                <span class="pagination-info" id="paginationInfo"></span>
+                <button class="button button-muted" id="nextPage" type="button">Berikutnya →</button>
+            </nav>
+            <div class="empty-state" id="emptyState" hidden>
+                <div class="empty-icon">📚</div>
+                <h2 id="emptyTitle">Belum ada riwayat</h2>
+                <p id="emptyDescription">Ekstrak transkrip dari halaman utama, dan hasilnya akan tersimpan di SQLite.</p>
+            </div>
+            <div class="error-state" id="errorState" hidden>
+                <div class="empty-icon">⚠️</div>
+                <h2>Riwayat tidak dapat dibaca</h2>
+                <p id="errorMessage"></p>
+            </div>
+        </section>
+
+        <section class="detail-panel" id="detailView" hidden>
+            <div class="detail-header">
+                <div>
+                    <button class="button button-muted" id="backButton" type="button">← Kembali ke riwayat</button>
+                    <h1 class="detail-title" id="detailTitle"></h1>
+                    <p class="detail-meta" id="detailMeta"></p>
+                </div>
+                <button class="button button-danger" id="detailDeleteButton" type="button">🗑 Hapus</button>
+            </div>
+            <div class="detail-content">
+                <section class="content-section">
+                    <h2>📝 Transkrip</h2>
+                    <pre class="content-text" id="detailTranscript"></pre>
+                </section>
+                <section class="content-section">
+                    <h2>🔑 Key Points</h2>
+                    <div class="content-text markdown-content" id="detailKeyPoints"></div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const HISTORY_STORAGE_KEY = 'youtubeKeyPointsHistory';
+        const HISTORY_IMPORT_TOKEN_KEY = 'youtubeKeyPointsHistoryImportToken';
+        let historyEntries = [];
+        let activeEntryId = null;
+        let currentPage = 1;
+        let totalPages = 0;
+        let totalEntries = 0;
+        let perPage = 10;
+        let migrationCompleted = false;
+        let pendingLoad = 0;
+
+        function readLegacyHistory() {
+            const rawHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
+            if (rawHistory === null) {
+                return [];
+            }
+
+            const entries = JSON.parse(rawHistory);
+            if (!Array.isArray(entries) || entries.some(entry =>
+                !entry || typeof entry !== 'object' || typeof entry.id !== 'string' ||
+                typeof entry.transcript !== 'string'
+            )) {
+                throw new Error('Data riwayat di browser tidak memiliki format yang valid.');
+            }
+            return entries;
+        }
+
+        async function apiRequest(url, options = {}) {
+            let response;
+            try {
+                response = await fetch(url, options);
+            } catch (error) {
+                throw new Error('Tidak dapat terhubung ke server untuk membaca SQLite.');
+            }
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Permintaan riwayat ke SQLite gagal.');
+            }
+            return result;
+        }
+
+        async function migrateLegacyHistory() {
+            const legacyHistory = readLegacyHistory();
+            let token = localStorage.getItem(HISTORY_IMPORT_TOKEN_KEY);
+            if (!token) {
+                token = typeof crypto.randomUUID === 'function'
+                    ? crypto.randomUUID()
+                    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                localStorage.setItem(HISTORY_IMPORT_TOKEN_KEY, token);
+            }
+
+            await apiRequest('/api/history/import', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({token, history: legacyHistory})
+            });
+        }
+
+        async function loadHistory() {
+            const loadId = ++pendingLoad;
+            try {
+                if (!migrationCompleted) {
+                    await migrateLegacyHistory();
+                    migrationCompleted = true;
+                }
+                const params = new URLSearchParams({
+                    page: String(currentPage),
+                    per_page: String(perPage),
+                    q: document.getElementById('searchInput').value.trim(),
+                    language: document.getElementById('languageFilter').value.trim(),
+                    status: document.getElementById('statusFilter').value,
+                    date_from: document.getElementById('dateFrom').value,
+                    date_to: document.getElementById('dateTo').value
+                });
+                const result = await apiRequest(`/api/history?${params}`);
+                if (loadId !== pendingLoad) {
+                    return;
+                }
+                historyEntries = result.history;
+                currentPage = result.pagination.page;
+                totalPages = result.pagination.pages;
+                totalEntries = result.pagination.total;
+                perPage = result.pagination.per_page;
+                renderHistory();
+            } catch (error) {
+                if (loadId !== pendingLoad) {
+                    return;
+                }
+                showStorageError(error);
+            }
+        }
+
+        function showStorageError(error) {
+            document.getElementById('entryList').hidden = true;
+            document.getElementById('emptyState').hidden = true;
+            document.getElementById('errorState').hidden = false;
+            document.getElementById('resultCount').textContent = '';
+            document.getElementById('pagination').hidden = true;
+            document.getElementById('errorMessage').textContent =
+                `${error.message || 'SQLite tidak tersedia.'} Data riwayat tidak diubah.`;
+        }
+
+        function formatDate(value) {
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return 'Tanggal tidak tersedia';
+            }
+            return new Intl.DateTimeFormat('id-ID', {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            }).format(date);
+        }
+
+        function makeChip(text) {
+            const chip = document.createElement('span');
+            chip.className = 'meta-chip';
+            chip.textContent = text;
+            return chip;
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('entryList');
+            const emptyState = document.getElementById('emptyState');
+            list.replaceChildren();
+
+            const firstEntry = totalEntries ? (currentPage - 1) * perPage + 1 : 0;
+            const lastEntry = Math.min(currentPage * perPage, totalEntries);
+            document.getElementById('resultCount').textContent = totalEntries
+                ? `Menampilkan ${firstEntry}–${lastEntry} dari ${totalEntries} video`
+                : '0 video';
+            document.getElementById('errorState').hidden = true;
+
+            if (!historyEntries.length) {
+                list.hidden = true;
+                emptyState.hidden = false;
+                const hasFilters = document.getElementById('searchInput').value.trim() ||
+                    document.getElementById('languageFilter').value.trim() ||
+                    document.getElementById('statusFilter').value !== 'all' ||
+                    document.getElementById('dateFrom').value ||
+                    document.getElementById('dateTo').value;
+                document.getElementById('emptyTitle').textContent =
+                    hasFilters ? 'Tidak ada hasil yang cocok' : 'Belum ada riwayat';
+                document.getElementById('emptyDescription').textContent =
+                    hasFilters
+                        ? 'Coba kata kunci lain, atau hapus teks pencarian.'
+                        : 'Ekstrak transkrip dari halaman utama, dan hasilnya akan tersimpan di SQLite.';
+                document.getElementById('pagination').hidden = true;
+                return;
+            }
+
+            list.hidden = false;
+            emptyState.hidden = true;
+            document.getElementById('pagination').hidden = totalPages <= 1;
+            document.getElementById('paginationInfo').textContent =
+                `Halaman ${currentPage} dari ${totalPages}`;
+            document.getElementById('previousPage').disabled = currentPage <= 1;
+            document.getElementById('nextPage').disabled = currentPage >= totalPages;
+            historyEntries.forEach(entry => {
+                const card = document.createElement('article');
+                card.className = 'entry-card';
+
+                const topline = document.createElement('div');
+                topline.className = 'entry-topline';
+                const heading = document.createElement('div');
+                heading.className = 'entry-heading';
+                const title = document.createElement('button');
+                title.className = 'entry-title entry-title-button';
+                title.type = 'button';
+                title.textContent = entry.title || 'Untitled video';
+                title.addEventListener('click', () => openEntry(entry.id));
+                heading.appendChild(title);
+                const date = document.createElement('time');
+                date.className = 'entry-date';
+                date.dateTime = entry.createdAt || '';
+                date.textContent = formatDate(entry.createdAt);
+                topline.append(heading, date);
+
+                const metadata = document.createElement('div');
+                metadata.className = 'entry-meta';
+                if (entry.videoId) metadata.appendChild(makeChip(`Video ${entry.videoId}`));
+                if (entry.language) metadata.appendChild(makeChip(entry.language));
+                metadata.appendChild(makeChip(entry.keyPoints ? 'Key points tersedia' : 'Transkrip saja'));
+
+                const preview = document.createElement('p');
+                preview.className = 'entry-preview';
+                preview.textContent = entry.transcript || 'Transkrip tidak tersedia.';
+
+                const actions = document.createElement('div');
+                actions.className = 'entry-actions';
+                const openButton = document.createElement('button');
+                openButton.className = 'button button-primary';
+                openButton.type = 'button';
+                openButton.textContent = 'Buka & baca';
+                openButton.addEventListener('click', () => openEntry(entry.id));
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'button button-danger';
+                deleteButton.type = 'button';
+                deleteButton.textContent = '🗑 Hapus';
+                deleteButton.addEventListener('click', () => deleteEntry(entry.id));
+                actions.append(openButton, deleteButton);
+
+                card.append(topline, metadata, preview, actions);
+                list.appendChild(card);
+            });
+        }
+
+        function openEntry(entryId) {
+            const entry = historyEntries.find(item => item.id === entryId);
+            if (!entry) {
+                return;
+            }
+
+            activeEntryId = entryId;
+            document.getElementById('listView').hidden = true;
+            document.getElementById('detailView').hidden = false;
+            document.getElementById('detailTitle').textContent = entry.title || 'Untitled video';
+            document.getElementById('detailMeta').textContent =
+                `Video ID: ${entry.videoId || '-'} · Bahasa: ${entry.language || '-'} · Disimpan ${formatDate(entry.createdAt)}`;
+            document.getElementById('detailTranscript').textContent =
+                entry.transcript || 'Transkrip tidak tersedia.';
+            const keyPoints = document.getElementById('detailKeyPoints');
+            if (entry.keyPoints && typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                marked.setOptions({breaks: true, gfm: true});
+                keyPoints.innerHTML = DOMPurify.sanitize(marked.parse(entry.keyPoints));
+            } else {
+                keyPoints.textContent = entry.keyPoints || 'Key points belum dibuat untuk video ini.';
+            }
+        }
+
+        function returnToList() {
+            activeEntryId = null;
+            document.getElementById('detailView').hidden = true;
+            document.getElementById('listView').hidden = false;
+            renderHistory();
+        }
+
+        async function deleteEntry(entryId) {
+            const entry = historyEntries.find(item => item.id === entryId);
+            if (!entry) {
+                return;
+            }
+
+            const confirmation = await Swal.fire({
+                title: 'Hapus riwayat ini?',
+                text: `“${entry.title || 'Untitled video'}” akan dihapus dari database SQLite.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, hapus',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#d95365',
+                cancelButtonColor: '#777d95'
+            });
+            if (!confirmation.isConfirmed) {
+                return;
+            }
+
+            try {
+                await apiRequest(`/api/history/${encodeURIComponent(entryId)}`, {method: 'DELETE'});
+                if (activeEntryId === entryId) {
+                    activeEntryId = null;
+                    document.getElementById('detailView').hidden = true;
+                    document.getElementById('listView').hidden = false;
+                }
+                await loadHistory();
+                Swal.fire({
+                    title: 'Terhapus',
+                    text: 'Riwayat berhasil dihapus dari SQLite.',
+                    icon: 'success',
+                    timer: 1700,
+                    showConfirmButton: false
+                });
+            } catch (error) {
+                showStorageError(error);
+            }
+        }
+
+        let searchTimer;
+        function resetAndLoadHistory() {
+            currentPage = 1;
+            loadHistory();
+        }
+
+        document.getElementById('searchInput').addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(resetAndLoadHistory, 250);
+        });
+        ['languageFilter', 'statusFilter', 'dateFrom', 'dateTo'].forEach(id => {
+            document.getElementById(id).addEventListener('change', resetAndLoadHistory);
+            if (id === 'languageFilter') {
+                document.getElementById(id).addEventListener('input', () => {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(resetAndLoadHistory, 250);
+                });
+            }
+        });
+        document.getElementById('pageSize').addEventListener('change', event => {
+            perPage = Number(event.target.value);
+            currentPage = 1;
+            loadHistory();
+        });
+        document.getElementById('previousPage').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage -= 1;
+                loadHistory();
+            }
+        });
+        document.getElementById('nextPage').addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage += 1;
+                loadHistory();
+            }
+        });
+        document.getElementById('backButton').addEventListener('click', returnToList);
+        document.getElementById('detailDeleteButton').addEventListener('click', () => {
+            if (activeEntryId) deleteEntry(activeEntryId);
+        });
+
+        loadHistory();
+    </script>
+</body>
+
+</html>

@@ -81,8 +81,13 @@ The application will be available at: `http://localhost:5000`
 5. Click **"Extract Subtitles"** to retrieve the transcript.
 6. Choose an AI model, target output language, and toggle **Chunking** (recommended for long videos).
 7. Click **"Generate Key Points"** and copy the results as needed, or download the transcript and key points together as a TXT or Markdown file.
+8. Open **"Riwayat Lokal"** to search, reopen, and delete saved transcripts and key points.
 
 💡 *Pro Tip:* The browser URL automatically updates with the `?url=` parameter upon extraction, making it easy to bookmark or share your current session.
+
+### Riwayat Lokal
+
+Transcript and generated key points are saved in the application's SQLite database (`instance/history.sqlite3`). Open `/history` or click **"Riwayat Lokal"** to search and filter by date, language, and key points status. Results are paginated (10, 20, or 50 entries per page); click a title to read the transcript and formatted key points, or delete an entry. Existing browser-local history is imported automatically on the first visit and kept in the browser as a backup. Back up `instance/history.sqlite3` regularly; deleting the database file or the application's instance directory removes server history.
 
 ### API Endpoints
 
@@ -202,8 +207,9 @@ Comprehensive error handling for:
 ## Notes
 
 - Successful subtitle extractions are recorded in `submissions.log` as JSON Lines (URL, video title, video ID, and UTC timestamp).
+- Transcript history and generated key points are stored in `instance/history.sqlite3`; this local SQLite database is not committed to version control.
 - The transcript is returned as plain text without timestamps for cleaner AI processing.
-- All data is processed in-memory; no video or transcript data is permanently stored on the server.
+- No video data is stored on the server.
 
 ## Contributing
 
