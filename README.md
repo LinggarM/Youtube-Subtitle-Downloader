@@ -13,6 +13,7 @@ A full-stack Flask application that extracts subtitles from YouTube videos and g
 - 🌐 **Language Selection**: Choose from available subtitle languages with detailed metadata.
 - 🔍 **Language Detection**: Automatically detect all available subtitle languages (manual vs. auto-generated).
 - 🧠 **AI-Powered Summarization**: Generate key insights using Groq or Google AI Studio models.
+- 📝 **Custom Prompt Templates**: Choose summaries, executive summaries, key points, Q&A, action items, or enter your own prompt.
 - ✂️ **Smart Chunking**: Automatically breaks down long transcripts to bypass AI token limits and ensure comprehensive, high-quality summaries.
 - 🎨 **Modern UI**: Responsive web interface with glassmorphism design and smooth animations.
 - 📋 **One-Click Copy**: Easily copy transcripts and generated key points to the clipboard.
@@ -79,8 +80,8 @@ The application will be available at: `http://localhost:5000`
 3. Click **"Check Languages"** to see available subtitle languages.
 4. Select your preferred language from the interactive grid.
 5. Click **"Extract Subtitles"** to retrieve the transcript.
-6. Choose an AI model, target output language, and toggle **Chunking** (recommended for long videos).
-7. Click **"Generate Key Points"** and copy the results as needed, or download the transcript and key points together as a TXT or Markdown file.
+6. Choose an AI model and output language, then select an output format or enter a custom prompt. Toggle **Chunking** for long videos if needed.
+7. Click **"Generate Key Points"** and copy the result as needed, or download the transcript and result together as a TXT or Markdown file.
 8. Open **"Riwayat Lokal"** to search, reopen, and delete saved transcripts and key points.
 
 💡 *Pro Tip:* The browser URL automatically updates with the `?url=` parameter upon extraction, making it easy to bookmark or share your current session.
@@ -149,10 +150,12 @@ Transcript and generated key points are saved in the application's SQLite databa
     "provider": "google",
     "model": "gemini-3.8-flash",
     "target_language": "Indonesia",
-    "use_chunking": true
+    "use_chunking": true,
+    "prompt_type": "qa",
+    "custom_prompt": ""
 }
 ```
-*Note: `target_language` defaults to "Indonesia". `use_chunking` defaults to `true` and is highly recommended for transcripts longer than 6000 characters.*
+`prompt_type` may be `summary`, `executive_summary`, `key_points`, `qa`, `action_items`, or `custom`. For `custom`, provide instructions in `custom_prompt` (up to 2000 characters); the selected output language still applies. `prompt_type` defaults to `key_points` for existing API clients. `target_language` defaults to "Indonesia". `use_chunking` defaults to `false` for API requests and applies the selected format to long transcripts when enabled.
 
 **Response:**
 ```json

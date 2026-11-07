@@ -115,6 +115,22 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GOOGLE_AI_STUDIO_API_KEY = os.getenv("GOOGLE_AI_STUDIO_API_KEY")
 GOOGLE_AI_STUDIO_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 SUBMISSION_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'submissions.log')
+PROMPT_TEMPLATES = {
+    'summary': 'Rangkum isi transkrip secara jelas, runtut, dan ringkas.',
+    'executive_summary': (
+        'Buat ringkasan eksekutif yang mencakup konteks, tujuan utama, temuan penting, '
+        'dan kesimpulan. Sajikan dengan struktur profesional.'
+    ),
+    'key_points': 'Berikan poin-poin penting dari transkrip berikut.',
+    'qa': (
+        'Susun isi transkrip dalam format tanya jawab (Q&A). Buat pertanyaan yang relevan '
+        'dan jawaban yang akurat berdasarkan transkrip.'
+    ),
+    'action_items': (
+        'Identifikasi action items atau langkah selanjutnya yang disebutkan dalam transkrip. '
+        'Sertakan penanggung jawab atau tenggat hanya jika disebutkan. Jika tidak ada, nyatakan demikian.'
+    )
+}
 
 def get_video_title(video_id):
     """Get the title of a YouTube video using its oEmbed endpoint"""
@@ -253,33 +269,55 @@ def _call_ai_api(provider, model, prompt):
         raise AIAPIError(response.status_code, error_message) from e
 
 # Ganti fungsi get_key_points dengan versi yang mendukung pilihan chunking:
-def get_key_points(transcript, provider, model, target_language="Indonesia", use_chunking=True):
-    """Get key points dengan opsi chunking universal."""
-    
-    # Jika user memilih chunking DAN transkrip cukup panjang (>6000 karakter)
+def get_key_points(
+    transcript,
+    provider,
+    model,
+    target_language="Indonesia",
+    use_chunking=True,
+    prompt_type="key_points",
+    custom_prompt=""
+):
+    """Generate an AI result using a selected or custom prompt template."""
+    instruction = custom_prompt.strip() if prompt_type == 'custom' else PROMPT_TEMPLATES[prompt_type]
+
+    def format_prompt(source, prefix=''):
+        if prompt_type == 'key_points':
+            return f"{prefix}Berikan poin-poin penting dari transkrip berikut dalam bahasa {target_language}:\n\n{source}"
+        return (
+            f"{prefix}Instruksi: {instruction}\n"
+            f"Bahasa keluaran: {target_language}.\n"
+            "Gunakan hanya informasi yang tersedia dan jangan mengarang detail.\n\n"
+            f"Transkrip:\n{source}"
+        )
+
     if use_chunking and len(transcript) > 6000:
         chunk_size = 6000
         chunks = [transcript[i:i+chunk_size] for i in range(0, len(transcript), chunk_size)]
         chunk_summaries = []
         
         for i, chunk in enumerate(chunks):
-            prompt = f"Bagian {i+1} dari {len(chunks)}. Berikan poin-poin penting dari transkrip berikut dalam bahasa {target_language}:\n\n{chunk}"
+            prefix = f"Bagian {i+1} dari {len(chunks)}. "
+            prompt = format_prompt(chunk, prefix)
             result = _call_ai_api(provider, model, prompt)
             chunk_summaries.append(result)
             time.sleep(0.5) # Jeda agar tidak terkena rate limit
             
-        # Gabungkan hasil chunk
         combined_text = "\n\n---\n\n".join(chunk_summaries)
-        final_prompt = (
-            f"Gabungkan dan ringkas semua poin-poin penting berikut menjadi satu ringkasan utuh "
-            f"yang terstruktur, padat, dan tidak berulang, dalam bahasa {target_language}:\n\n{combined_text}"
-        )
+        if prompt_type == 'key_points':
+            final_prompt = (
+                f"Gabungkan dan ringkas semua poin-poin penting berikut menjadi satu ringkasan utuh "
+                f"yang terstruktur, padat, dan tidak berulang, dalam bahasa {target_language}:\n\n{combined_text}"
+            )
+        else:
+            final_prompt = (
+                f"Gabungkan hasil sementara berikut menjadi satu keluaran yang konsisten, "
+                f"lengkap, dan tidak berulang. Ikuti instruksi ini: {instruction}\n"
+                f"Gunakan bahasa {target_language} dan hanya informasi yang tersedia:\n\n{combined_text}"
+            )
         return _call_ai_api(provider, model, final_prompt)
     
-    # Jika user TIDAK memilih chunking, atau transkrip pendek, kirim langsung (perilaku asli)
-    else:
-        prompt = f"Berikan poin-poin penting dari transkrip berikut dalam bahasa {target_language}:\n\n{transcript}"
-        return _call_ai_api(provider, model, prompt)
+    return _call_ai_api(provider, model, format_prompt(transcript))
 
 @app.route('/')
 def index():
@@ -526,9 +564,17 @@ def get_keypoints():
         model = data.get('model', 'openai/gpt-oss-20b')
         target_language = data.get('target_language', 'Indonesia')
         use_chunking = data.get('use_chunking', False)
+        prompt_type = data.get('prompt_type', 'key_points')
+        custom_prompt = data.get('custom_prompt', '')
         
         if not transcript:
             return jsonify({'error': 'Transcript is required'}), 400
+        if prompt_type not in (*PROMPT_TEMPLATES.keys(), 'custom'):
+            return jsonify({'error': 'Invalid output format selected.'}), 400
+        if not isinstance(custom_prompt, str) or len(custom_prompt) > 2000:
+            return jsonify({'error': 'Custom prompt must be text no longer than 2000 characters.'}), 400
+        if prompt_type == 'custom' and not custom_prompt.strip():
+            return jsonify({'error': 'Enter a custom prompt or choose a preset output format.'}), 400
         
         allowed_models = {
             'groq': ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'],
@@ -543,8 +589,15 @@ def get_keypoints():
             return jsonify({'error': f'{key_name} is not configured. Add a valid API key to the .env file.'}), 503
         
         try:
-            # <-- Teruskan parameter use_chunking ke fungsi
-            key_points = get_key_points(transcript, provider, model, target_language, use_chunking)
+            key_points = get_key_points(
+                transcript,
+                provider,
+                model,
+                target_language,
+                use_chunking,
+                prompt_type,
+                custom_prompt
+            )
         except AIAPIError as e:
             app.logger.error("%s API returned %s: %s", provider, e.status_code, e)
             return jsonify({'error': f'{provider} API error ({e.status_code}): {e}'}), 502
