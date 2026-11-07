@@ -16,6 +16,7 @@ A full-stack Flask application that extracts subtitles from YouTube videos and g
 - ✂️ **Smart Chunking**: Automatically breaks down long transcripts to bypass AI token limits and ensure comprehensive, high-quality summaries.
 - 🎨 **Modern UI**: Responsive web interface with glassmorphism design and smooth animations.
 - 📋 **One-Click Copy**: Easily copy transcripts and generated key points to the clipboard.
+- 📥 **Export Results**: Download the transcript and generated key points together as a TXT or Markdown file.
 - 🚀 **RESTful API**: Clean and well-documented API endpoints for easy integration.
 
 ## AI Models Available
@@ -79,7 +80,7 @@ The application will be available at: `http://localhost:5000`
 4. Select your preferred language from the interactive grid.
 5. Click **"Extract Subtitles"** to retrieve the transcript.
 6. Choose an AI model, target output language, and toggle **Chunking** (recommended for long videos).
-7. Click **"Generate Key Points"** and copy the results as needed.
+7. Click **"Generate Key Points"** and copy the results as needed, or download the transcript and key points together as a TXT or Markdown file.
 
 💡 *Pro Tip:* The browser URL automatically updates with the `?url=` parameter upon extraction, making it easy to bookmark or share your current session.
 

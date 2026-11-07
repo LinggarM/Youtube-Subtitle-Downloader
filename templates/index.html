@@ -162,6 +162,14 @@
             gap: 10px;
         }
 
+        .export-container {
+            display: flex;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
         .copy-btn {
             background: #28a745;
             color: white;
@@ -548,6 +556,10 @@
 
         <div class="result-section" id="resultSection" style="display: none;">
             <div class="video-info" id="videoInfo"></div>
+            <div class="export-container" aria-label="Export transcript and key points">
+                <button class="copy-btn" onclick="exportResults('txt')"><span>📄</span><span>Export TXT</span></button>
+                <button class="copy-btn" onclick="exportResults('md')"><span>📝</span><span>Export Markdown</span></button>
+            </div>
 
             <div class="two-column">
                 <div class="transcript-column">
@@ -620,6 +632,8 @@
 
     <script>
         let currentVideoTitle = '';
+        let currentVideoId = '';
+        let currentLanguage = '';
         let currentTranscript = '';
         let currentKeyPoints = '';
         let availableLanguages = [];
@@ -819,6 +833,8 @@
             const keypointsHeader = document.getElementsByClassName('keypoints-header')[0];
 
             currentTranscript = transcript;
+            currentVideoId = videoId;
+            currentLanguage = `${language.language} (${language.language_code})`;
             currentKeyPoints = '';
             transcriptBox.textContent = transcript;
             videoInfo.innerHTML = `
@@ -924,6 +940,50 @@
             });
             
             return marked.parse(text);
+        }
+
+        function exportResults(format) {
+            if (!currentTranscript) {
+                showError('Please extract subtitles first');
+                return;
+            }
+
+            const isMarkdown = format === 'md';
+            const title = currentVideoTitle || 'YouTube Key Points';
+            const transcriptHeading = isMarkdown ? '## Transcript' : 'TRANSCRIPT';
+            const keyPointsHeading = isMarkdown ? '## Key Points' : 'KEY POINTS';
+            const metadata = isMarkdown
+                ? `# ${title}\n\nVideo ID: ${currentVideoId}\nLanguage: ${currentLanguage}`
+                : `${title}\nVideo ID: ${currentVideoId}\nLanguage: ${currentLanguage}`;
+            const keyPoints = currentKeyPoints || 'Key points have not been generated yet.';
+            const content = [
+                metadata,
+                transcriptHeading,
+                currentTranscript,
+                keyPointsHeading,
+                keyPoints
+            ].join('\n\n');
+            const extension = isMarkdown ? 'md' : 'txt';
+            const safeTitle = title
+                .normalize('NFKD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+                .trim()
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '') || 'youtube-key-points';
+            const blob = new Blob([content], {
+                type: isMarkdown ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
+            });
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = `${safeTitle}.${extension}`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+            showSuccess(`${extension.toUpperCase()} export downloaded!`);
         }
 
         function copyTranscript() {
